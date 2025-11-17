@@ -128,6 +128,7 @@ export default function ParentPage() {
   const [newJobPoints, setNewJobPoints] = useState<number | ''>(10)
   const [newJobRequiresApproval, setNewJobRequiresApproval] = useState(true)
   const [newJobMinAge, setNewJobMinAge] = useState<number | ''>('')
+  const [editingJobId, setEditingJobId] = useState<string | null>(null)
 
   // recurring template form
   const [newTemplateName, setNewTemplateName] = useState('')
@@ -138,6 +139,7 @@ export default function ParentPage() {
   const [newTemplateMinAge, setNewTemplateMinAge] = useState<number | ''>('')
   const [newTemplateFrequencyDays, setNewTemplateFrequencyDays] =
     useState<number | ''>(2)
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
 
   // reward catalog form
   const [newRewardName, setNewRewardName] = useState('')
@@ -154,17 +156,35 @@ export default function ParentPage() {
   const [pinInput, setPinInput] = useState('')
   const [pinError, setPinError] = useState<string | null>(null)
 
+  const resetTemplateForm = () => {
+    setNewTemplateName('')
+    setNewTemplateDescription('')
+    setNewTemplatePoints(10)
+    setNewTemplateRequiresApproval(true)
+    setNewTemplateMinAge('')
+    setNewTemplateFrequencyDays(2)
+    setEditingTemplateId(null)
+  }
+
+  const resetJobForm = () => {
+    setNewJobName('')
+    setNewJobDescription('')
+    setNewJobPoints(10)
+    setNewJobRequiresApproval(true)
+    setNewJobMinAge('')
+    setEditingJobId(null)
+  }
+
   const loadData = async () => {
     setLoading(true)
     setError(null)
 
-  // Ask Supabase to auto generate any due recurring jobs
-  const { error: genError } = await supabase.rpc('generate_due_jobs')
-
-  if (genError) {
-    console.error('generate_due_jobs failed', genError)
-      //do not block the page just becasue generation failed
-  }
+    // Try to auto-generate any due recurring jobs
+    const { error: genError } = await supabase.rpc('generate_due_jobs')
+    if (genError) {
+      console.error('generate_due_jobs failed', genError)
+      // don't block UI on this
+    }
 
     const [
       kidsRes,
@@ -360,7 +380,7 @@ export default function ParentPage() {
     loadData()
   }
 
-  const handleAddJob = async (e: FormEvent) => {
+  const handleJobSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
 
@@ -369,28 +389,42 @@ export default function ParentPage() {
       return
     }
 
-    const { error } = await supabase.from('jobs').insert({
+    const basePayload = {
       name: newJobName.trim(),
       description: newJobDescription.trim() || null,
       base_points: newJobPoints === '' ? 10 : newJobPoints,
       requires_approval: newJobRequiresApproval,
       min_age: newJobMinAge === '' ? null : newJobMinAge
-    })
+    }
+
+    if (editingJobId) {
+      const { error } = await supabase
+        .from('jobs')
+        .update(basePayload)
+        .eq('id', editingJobId)
+
+      if (error) {
+        setError(error.message)
+        return
+      }
+
+      resetJobForm()
+      await loadData()
+      return
+    }
+
+    const { error } = await supabase.from('jobs').insert(basePayload)
 
     if (error) {
       setError(error.message)
       return
     }
 
-    setNewJobName('')
-    setNewJobDescription('')
-    setNewJobPoints(10)
-    setNewJobRequiresApproval(true)
-    setNewJobMinAge('')
+    resetJobForm()
     loadData()
   }
 
-  const handleAddTemplate = async (e: FormEvent) => {
+  const handleTemplateSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
 
@@ -404,26 +438,39 @@ export default function ParentPage() {
       return
     }
 
-    const { error } = await supabase.from('job_templates').insert({
+    const basePayload = {
       name: newTemplateName.trim(),
       description: newTemplateDescription.trim() || null,
       base_points: newTemplatePoints === '' ? 10 : newTemplatePoints,
       requires_approval: newTemplateRequiresApproval,
       min_age: newTemplateMinAge === '' ? null : newTemplateMinAge,
       frequency_days: newTemplateFrequencyDays
-    })
+    }
+
+    if (editingTemplateId) {
+      const { error } = await supabase
+        .from('job_templates')
+        .update(basePayload)
+        .eq('id', editingTemplateId)
+
+      if (error) {
+        setError(error.message)
+        return
+      }
+
+      resetTemplateForm()
+      await loadData()
+      return
+    }
+
+    const { error } = await supabase.from('job_templates').insert(basePayload)
 
     if (error) {
       setError(error.message)
       return
     }
 
-    setNewTemplateName('')
-    setNewTemplateDescription('')
-    setNewTemplatePoints(10)
-    setNewTemplateRequiresApproval(true)
-    setNewTemplateMinAge('')
-    setNewTemplateFrequencyDays(2)
+    resetTemplateForm()
     await loadData()
   }
 
@@ -515,6 +562,33 @@ export default function ParentPage() {
     }
 
     await loadData()
+  }
+
+  const handleStartEditTemplate = (template: JobTemplate) => {
+    setNewTemplateName(template.name)
+    setNewTemplateDescription(template.description || '')
+    setNewTemplatePoints(template.base_points)
+    setNewTemplateRequiresApproval(template.requires_approval)
+    setNewTemplateMinAge(template.min_age === null ? '' : template.min_age)
+    setNewTemplateFrequencyDays(template.frequency_days)
+    setEditingTemplateId(template.id)
+  }
+
+  const handleCancelEditTemplate = () => {
+    resetTemplateForm()
+  }
+
+  const handleStartEditJob = (job: Job) => {
+    setNewJobName(job.name)
+    setNewJobDescription(job.description || '')
+    setNewJobPoints(job.base_points)
+    setNewJobRequiresApproval(job.requires_approval)
+    setNewJobMinAge(job.min_age === null ? '' : job.min_age)
+    setEditingJobId(job.id)
+  }
+
+  const handleCancelEditJob = () => {
+    resetJobForm()
   }
 
   const handleApprove = async (log: PendingLog) => {
@@ -1628,12 +1702,24 @@ export default function ParentPage() {
         <div className="space-y-4">
           {/* Add recurring template */}
           <section className="bg-white rounded-xl p-4 shadow border border-slate-200">
-            <h2 className="text-lg font-semibold mb-3">
-              Add recurring job template
-            </h2>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-semibold">
+                {editingTemplateId
+                  ? 'Edit recurring job template'
+                  : 'Add recurring job template'}
+              </h2>
+              {editingTemplateId && (
+                <button
+                  onClick={handleCancelEditTemplate}
+                  className="text-xs px-3 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-200"
+                >
+                  Cancel edit
+                </button>
+              )}
+            </div>
             <form
               className="grid gap-3 md:grid-cols-4 items-end"
-              onSubmit={handleAddTemplate}
+              onSubmit={handleTemplateSubmit}
             >
               <div className="flex flex-col md:col-span-2">
                 <label className="text-sm text-slate-600 mb-1">
@@ -1719,7 +1805,7 @@ export default function ParentPage() {
                 type="submit"
                 className="bg-slate-900 text-white rounded-lg px-4 py-2 font-semibold hover:bg-slate-800 md:col-span-4"
               >
-                Add template
+                {editingTemplateId ? 'Save changes' : 'Add template'}
               </button>
             </form>
           </section>
@@ -1780,12 +1866,20 @@ export default function ParentPage() {
                           </>
                         )}
                       </div>
-                      <button
-                        onClick={() => handleToggleTemplateActive(t)}
-                        className="mt-2 text-[11px] px-2 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-200"
-                      >
-                        {t.is_active ? 'Deactivate' : 'Activate'}
-                      </button>
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          onClick={() => handleToggleTemplateActive(t)}
+                          className="text-[11px] px-2 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-200"
+                        >
+                          {t.is_active ? 'Deactivate' : 'Activate'}
+                        </button>
+                        <button
+                          onClick={() => handleStartEditTemplate(t)}
+                          className="text-[11px] px-2 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-200"
+                        >
+                          Edit
+                        </button>
+                      </div>
                     </div>
                   )
                 })}
@@ -1798,12 +1892,22 @@ export default function ParentPage() {
         <div className="space-y-4">
           {/* Add one-time Job */}
           <section className="bg-white rounded-xl p-4 shadow border border-slate-200">
-            <h2 className="text-lg font-semibold mb-3">
-              Add one-time job
-            </h2>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-semibold">
+                {editingJobId ? 'Edit one-time job' : 'Add one-time job'}
+              </h2>
+              {editingJobId && (
+                <button
+                  onClick={handleCancelEditJob}
+                  className="text-xs px-3 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-200"
+                >
+                  Cancel edit
+                </button>
+              )}
+            </div>
             <form
               className="grid gap-3 md:grid-cols-4 items-end"
-              onSubmit={handleAddJob}
+              onSubmit={handleJobSubmit}
             >
               <div className="flex flex-col md:col-span-2">
                 <label className="text-sm text-slate-600 mb-1">
@@ -1871,7 +1975,7 @@ export default function ParentPage() {
                 type="submit"
                 className="bg-slate-900 text-white rounded-lg px-4 py-2 font-semibold hover:bg-slate-800 md:col-span-4"
               >
-                Add one-time job
+                {editingJobId ? 'Save changes' : 'Add one-time job'}
               </button>
             </form>
           </section>
@@ -1923,21 +2027,30 @@ export default function ParentPage() {
                             {claimer ? claimer.name : 'a kid'}
                           </div>
                         )}
-                        {job.is_claimed && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {job.is_claimed && (
+                            <button
+                              onClick={() =>
+                                handleUnclaimJobAsParent(job)
+                              }
+                              className="text-[10px] px-2 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-200"
+                            >
+                              Unclaim
+                            </button>
+                          )}
                           <button
-                            onClick={() => handleUnclaimJobAsParent(job)}
-                            className="mt-1 text-[10px] px-2 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-200"
+                            onClick={() => handleDeactivateJob(job)}
+                            className="text-[10px] px-2 py-1 rounded border border-red-300 text-red-700 hover:bg-red-50"
                           >
-                            Unclaim job
+                            Remove
                           </button>
-                        )}
-
-                        <button
-                          onClick={() => handleDeactivateJob(job)}
-                          className="mt-1 ml-2 text-[10px] px-2 py-1 rounded border border-red-300 text-red-700 hover:bg-red-50"
-                        >
-                          Remove from board
-                        </button>
+                          <button
+                            onClick={() => handleStartEditJob(job)}
+                            className="text-[10px] px-2 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-200"
+                          >
+                            Edit
+                          </button>
+                        </div>
 
                         {kids.length > 0 && (
                           <div className="mt-2">
