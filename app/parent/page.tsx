@@ -158,6 +158,14 @@ export default function ParentPage() {
     setLoading(true)
     setError(null)
 
+  // Ask Supabase to auto generate any due recurring jobs
+  const { error: genError } = await supabase.rpc('generate_due_jobs')
+
+  if (genError) {
+    console.error('generate_due_jobs failed', genError)
+      //do not block the page just becasue generation failed
+  }
+
     const [
       kidsRes,
       jobsRes,

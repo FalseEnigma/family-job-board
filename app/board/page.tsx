@@ -58,6 +58,13 @@ export default function BoardPage() {
     setLoading(true)
     setError(null)
 
+    // Ensure recurring jobs are generated whenever the board loads
+    const { error: genError } = await supabase.rpc('generate_due_jobs')
+
+    if (genError) {
+      console.error('generate_due_jobs failed on board', genError)
+    }
+
     const [kidsRes, jobsRes, settingsRes, rewardsRes, blockedRes] =
       await Promise.all([
         supabase
