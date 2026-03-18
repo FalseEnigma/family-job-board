@@ -547,16 +547,24 @@ function BoardPageContent() {
             done.
           </p>
         </div>
-        {selectedKid && (
-          <div className="text-right shrink-0 rounded-md bg-slate-50 border border-slate-200 px-4 py-2">
-            <div className="text-xs text-[#666666] uppercase tracking-wider">You are</div>
-            <div className="text-xl font-bold text-ease-teal">{selectedKid.name}</div>
-            <div className="text-xs text-[#666666] mt-1">
-              Current: {selectedKid.points_balance} pts • Lifetime:{' '}
-              {selectedKid.points_lifetime} pts
+        <div className="flex items-center gap-2 shrink-0">
+          {selectedKid && (
+            <div className="text-right rounded-md bg-slate-50 border border-slate-200 px-4 py-2">
+              <div className="text-xs text-[#666666] uppercase tracking-wider">You are</div>
+              <div className="text-xl font-bold text-ease-teal">{selectedKid.name}</div>
+              <div className="text-xs text-[#666666] mt-1">
+                Current: {selectedKid.points_balance} pts • Lifetime:{' '}
+                {selectedKid.points_lifetime} pts
+              </div>
             </div>
-          </div>
-        )}
+          )}
+          <Link
+            href={householdCode ? `/parent?board=${encodeURIComponent(householdCode)}` : householdId ? `/parent?household=${householdId}` : '/parent'}
+            className="rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-[#333333] hover:bg-slate-50 hover:border-ease-teal/50 whitespace-nowrap"
+          >
+            Parent view
+          </Link>
+        </div>
       </header>
 
       {error && (
