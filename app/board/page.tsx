@@ -1,10 +1,10 @@
 'use client'
 
 import { Suspense, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
 import type { Kid, Job, Reward, AppSettings, JobBlockedKid, Household } from '../../lib/types'
-import { DEFAULT_HOUSEHOLD_ID } from '../../lib/constants'
 import { getFriendlyErrorMessage } from '../../lib/utils'
 
 function BoardLoadingFallback() {
@@ -82,9 +82,11 @@ function BoardPageContent() {
       return
     }
 
-    setHouseholdId(DEFAULT_HOUSEHOLD_ID)
-    setHouseholdName('Default Family')
+    // Require board code - no open access to kid board
+    setHouseholdId(null)
+    setHouseholdName(null)
     setHouseholdCode(null)
+    setLoading(false)
   }
 
   const loadData = async (activeHouseholdId: string) => {
@@ -508,6 +510,28 @@ function BoardPageContent() {
       </div>
     )
   }
+
+  // Board code required - no access without it
+  if (!householdId) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-ease-bg text-[#333333] p-4">
+        <div className="bg-white rounded-md shadow-sm border border-slate-200/60 p-6 w-full max-w-md text-center">
+          <h1 className="text-xl font-bold text-[#333333] mb-2">Board code required</h1>
+          <p className="text-sm text-[#666666] mb-4">
+            Enter your family&apos;s board code on the home page to access the Kid Board.
+            Ask a parent for your code.
+          </p>
+          <Link
+            href="/"
+            className="inline-block rounded-md bg-ease-teal px-4 py-2 font-semibold text-white hover:bg-ease-teal-hover"
+          >
+            Go to home page
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-ease-bg text-[#333333] flex flex-col">
       {/* Header - Ease-style clean */}
