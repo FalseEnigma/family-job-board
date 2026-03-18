@@ -108,8 +108,8 @@ function ParentPageContent() {
   const [pinError, setPinError] = useState<string | null>(null)
 
   // Tab navigation (must be before any early returns to satisfy Rules of Hooks)
-  type TabId = 'inbox' | 'kids' | 'jobs' | 'rewards' | 'history'
-  const [activeTab, setActiveTab] = useState<TabId>('inbox')
+  type TabId = 'dashboard' | 'inbox' | 'kids' | 'jobs' | 'rewards' | 'history'
+  const [activeTab, setActiveTab] = useState<TabId>('dashboard')
 
   const resetTemplateForm = () => {
     setNewTemplateName('')
@@ -1269,6 +1269,7 @@ function ParentPageContent() {
   const inboxCount = jobRequests.length + pendingRewardRequests.length + pendingLogs.length
 
   const tabs: { id: TabId; label: string; count?: number }[] = [
+    { id: 'dashboard', label: 'Dashboard' },
     { id: 'inbox', label: 'Inbox', count: inboxCount },
     { id: 'kids', label: 'Kids' },
     { id: 'jobs', label: 'Jobs' },
@@ -1334,6 +1335,62 @@ function ParentPageContent() {
             </button>
           )}
         </div>
+      )}
+
+      {/* Tab: Dashboard */}
+      {activeTab === 'dashboard' && (
+      <div className="space-y-6 max-w-4xl">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {kids.map(kid => (
+            <section
+              key={kid.id}
+              className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60"
+            >
+              <h2 className="text-lg font-bold text-[#333333] mb-2">{kid.name}</h2>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-[#666666]">Current balance</span>
+                  <span className="font-semibold text-ease-teal">{kid.points_balance} pts</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#666666]">Lifetime earned</span>
+                  <span className="font-semibold">{kid.points_lifetime} pts</span>
+                </div>
+              </div>
+            </section>
+          ))}
+        </div>
+        {kids.length === 0 && (
+          <div className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
+            <p className="text-sm text-[#666666]">No kids yet. Add kids in the Kids tab.</p>
+          </div>
+        )}
+        <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
+          <h2 className="text-lg font-bold text-[#333333] mb-4">Recent point activity</h2>
+          {pointTxns.length === 0 ? (
+            <div className="text-sm text-[#666666]">No point transactions yet.</div>
+          ) : (
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {pointTxns.slice(0, 10).map(tx => {
+                const kid = kids.find(k => k.id === tx.kid_id)
+                if (!kid) return null
+                const when = new Date(tx.created_at)
+                return (
+                  <div key={tx.id} className="flex justify-between items-start bg-slate-50/50 border border-slate-200 rounded-md px-4 py-2">
+                    <div>
+                      <div className="text-sm font-semibold">
+                        {kid.name} – {tx.type === 'SPEND' ? 'Spent' : 'Penalty'} {tx.amount} pts
+                      </div>
+                      <div className="text-xs text-[#666666]">{tx.description}</div>
+                      <div className="text-xs text-slate-400">{when.toLocaleString()}</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      </div>
       )}
 
       {/* Tab: Inbox */}
