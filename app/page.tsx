@@ -1,4 +1,15 @@
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+
+function boardUrl(path: string, code: string | null) {
+  if (!code || !code.trim()) return path
+  return `${path}?board=${encodeURIComponent(code.trim())}`
+}
+
 export default function Home() {
+  const [boardCode, setBoardCode] = useState('')
   return (
     <div className="min-h-screen bg-ease-bg text-[#333333]">
       <main className="mx-auto w-full max-w-4xl px-4 py-10">
@@ -17,32 +28,33 @@ export default function Home() {
               Optional: enter a board code your parent created.
             </p>
 
-            <form action="/board" className="mt-4 space-y-3">
+            <div className="mt-4 space-y-3">
               <label className="block">
                 <span className="text-sm text-[#666666]">Board code</span>
                 <input
-                  name="board"
+                  type="text"
+                  value={boardCode}
+                  onChange={e => setBoardCode(e.target.value)}
                   placeholder="e.g. ABC123"
                   className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 text-[#333333] placeholder:text-slate-400 outline-none focus:border-ease-teal focus:ring-1 focus:ring-ease-teal"
                 />
               </label>
 
               <div className="grid gap-2 sm:grid-cols-2">
-                <button
-                  type="submit"
-                  className="rounded-md bg-ease-teal px-4 py-2 font-semibold text-white hover:bg-ease-teal-hover"
+                <Link
+                  href={boardUrl('/board', boardCode)}
+                  className="rounded-md bg-ease-teal px-4 py-2 font-semibold text-white hover:bg-ease-teal-hover text-center"
                 >
                   Kid Board
-                </button>
-                <button
-                  type="submit"
-                  formAction="/parent"
-                  className="rounded-md border border-slate-200 px-4 py-2 font-semibold text-[#333333] hover:bg-slate-50"
+                </Link>
+                <Link
+                  href={boardUrl('/parent', boardCode)}
+                  className="rounded-md border border-slate-200 px-4 py-2 font-semibold text-[#333333] hover:bg-slate-50 text-center"
                 >
                   Parent Dashboard
-                </button>
+                </Link>
               </div>
-            </form>
+            </div>
           </div>
 
           <div className="rounded-md border border-slate-200/60 bg-white p-5 shadow-sm">
@@ -52,18 +64,18 @@ export default function Home() {
             </p>
 
             <div className="mt-4 grid gap-2">
-              <a
-                className="rounded-md border border-slate-200 px-4 py-2 text-[#333333] hover:bg-slate-50 hover:border-ease-teal/50"
+              <Link
                 href="/board"
+                className="rounded-md border border-slate-200 px-4 py-2 text-[#333333] hover:bg-slate-50 hover:border-ease-teal/50 block text-center"
               >
                 Open Kid Board
-              </a>
-              <a
-                className="rounded-md border border-slate-200 px-4 py-2 text-[#333333] hover:bg-slate-50 hover:border-ease-teal/50"
+              </Link>
+              <Link
                 href="/parent"
+                className="rounded-md border border-slate-200 px-4 py-2 text-[#333333] hover:bg-slate-50 hover:border-ease-teal/50 block text-center"
               >
                 Open Parent Dashboard
-              </a>
+              </Link>
             </div>
 
             <div className="mt-4 text-xs text-[#666666]">
