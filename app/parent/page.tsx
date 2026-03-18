@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, FormEvent } from 'react'
+import { Suspense, useEffect, useRef, useState, FormEvent } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { useSearchParams } from 'next/navigation'
 import type {
@@ -26,7 +26,18 @@ const PARENT_PIN =
     ? process.env.NEXT_PUBLIC_PARENT_PIN.trim()
     : '1234'
 
-export default function ParentPage() {
+function ParentLoadingFallback() {
+  return (
+    <div className="flex items-center justify-center h-screen bg-ease-bg">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-ease-teal border-t-transparent" />
+        <span className="text-[#666666]">Loading...</span>
+      </div>
+    </div>
+  )
+}
+
+function ParentPageContent() {
   const [householdId, setHouseholdId] = useState<string | null>(null)
   const [householdName, setHouseholdName] = useState<string | null>(null)
   const [householdCode, setHouseholdCode] = useState<string | null>(null)
@@ -2185,5 +2196,13 @@ export default function ParentPage() {
 
       </main>
     </div>
+  )
+}
+
+export default function ParentPage() {
+  return (
+    <Suspense fallback={<ParentLoadingFallback />}>
+      <ParentPageContent />
+    </Suspense>
   )
 }

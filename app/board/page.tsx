@@ -1,13 +1,24 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
 import type { Kid, Job, Reward, AppSettings, JobBlockedKid, Household } from '../../lib/types'
 import { DEFAULT_HOUSEHOLD_ID } from '../../lib/constants'
 import { getFriendlyErrorMessage } from '../../lib/utils'
 
-export default function BoardPage() {
+function BoardLoadingFallback() {
+  return (
+    <div className="flex items-center justify-center h-screen bg-ease-bg text-[#333333]">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-ease-teal border-t-transparent" />
+        <span className="text-[#666666]">Loading board...</span>
+      </div>
+    </div>
+  )
+}
+
+function BoardPageContent() {
   const [householdId, setHouseholdId] = useState<string | null>(null)
   const [householdName, setHouseholdName] = useState<string | null>(null)
   const [householdCode, setHouseholdCode] = useState<string | null>(null)
@@ -826,5 +837,13 @@ export default function BoardPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function BoardPage() {
+  return (
+    <Suspense fallback={<BoardLoadingFallback />}>
+      <BoardPageContent />
+    </Suspense>
   )
 }
