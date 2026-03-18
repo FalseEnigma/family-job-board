@@ -60,3 +60,11 @@ To use board codes (so different families can have separate boards):
 2. Share the URL: `https://yoursite.com?board=SMITH2024` (or use the form on the home page).
 
 The default household (`Default Family`) works without a code.
+
+### Optional: Per-household parent PIN
+
+Each family can have its own PIN for the parent dashboard:
+
+1. Run the migration in Supabase SQL Editor: copy `supabase-migration-parent-pin.sql` and run it.
+2. Parents can set their PIN in the dashboard: **Kids** tab → **Household settings** → enter PIN → **Save PIN**.
+3. If no household PIN is set, the app falls back to `NEXT_PUBLIC_PARENT_PIN` from env.

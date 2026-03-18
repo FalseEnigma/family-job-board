@@ -97,7 +97,11 @@ function ParentPageContent() {
   const [adjustAmount, setAdjustAmount] = useState<number | ''>('')
   const [adjustReason, setAdjustReason] = useState('')
 
+  const [newHouseholdPin, setNewHouseholdPin] = useState('')
+  const [pinSaveStatus, setPinSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
   // PIN gate state
+  const [householdPin, setHouseholdPin] = useState<string | null>(null)
   const [unlocked, setUnlocked] = useState(false)
   const [pinInput, setPinInput] = useState('')
   const [pinError, setPinError] = useState<string | null>(null)
@@ -173,6 +177,7 @@ function ParentPageContent() {
     }
 
     const [
+      householdRes,
       kidsRes,
       jobsRes,
       templatesRes,
@@ -185,6 +190,11 @@ function ParentPageContent() {
       rewardReqRes,
       blockedRes
     ] = await Promise.all([
+      supabase
+        .from('households')
+        .select('parent_pin')
+        .eq('id', activeHouseholdId)
+        .single(),
       supabase
         .from('kids')
         .select('id, name, points_balance, points_lifetime')
@@ -255,6 +265,7 @@ function ParentPageContent() {
     ])
 
     const firstError =
+      householdRes.error?.message ??
       kidsRes.error?.message ??
       jobsRes.error?.message ??
       templatesRes.error?.message ??
@@ -274,6 +285,9 @@ function ParentPageContent() {
     }
 
     if (!mountedRef.current) return
+
+    const pin = (householdRes.data as { parent_pin?: string | null } | null)?.parent_pin
+    setHouseholdPin(pin && pin.trim() ? pin.trim() : null)
 
     setKids((kidsRes.data || []) as Kid[])
     setJobs((jobsRes.data || []) as Job[])
@@ -324,12 +338,39 @@ function ParentPageContent() {
     e.preventDefault()
     setPinError(null)
 
-    if (pinInput.trim() === PARENT_PIN) {
+    const expectedPin = householdPin || PARENT_PIN
+    if (pinInput.trim() === expectedPin) {
       setUnlocked(true)
       setPinInput('')
       return
     }
     setPinError('Incorrect PIN.')
+  }
+
+  const handleSaveHouseholdPin = async (e: FormEvent) => {
+    e.preventDefault()
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
+
+    setPinSaveStatus('saving')
+    setError(null)
+
+    const pin = newHouseholdPin.trim()
+    const { error } = await supabase
+      .from('households')
+      .update({ parent_pin: pin || null })
+      .eq('id', activeHouseholdId)
+
+    if (error) {
+      setError(error.message)
+      setPinSaveStatus('error')
+      return
+    }
+
+    setHouseholdPin(pin || null)
+    setNewHouseholdPin('')
+    setPinSaveStatus('saved')
+    setTimeout(() => setPinSaveStatus('idle'), 2000)
   }
 
   const handleAddKid = async (e: FormEvent) => {
@@ -1212,7 +1253,9 @@ function ParentPageContent() {
             </button>
           </form>
           <div className="mt-3 text-[11px] text-slate-400">
-            PIN is set by <code>NEXT_PUBLIC_PARENT_PIN</code> in your env.
+            {householdPin
+              ? 'Using this household\'s PIN.'
+              : 'Using default PIN (set in Settings → Household).'}
           </div>
         </div>
       </div>
@@ -1439,6 +1482,34 @@ function ParentPageContent() {
       {activeTab === 'kids' && (
       <div className="space-y-6 max-w-3xl">
         <div className="space-y-4">
+          {/* Household settings - Parent PIN */}
+          <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
+            <h2 className="text-lg font-bold text-[#333333] mb-4">Household settings</h2>
+            <p className="text-sm text-[#666666] mb-3">
+              Set a PIN for this family only. Parents use it to unlock the dashboard.
+              Leave blank to use the default PIN.
+            </p>
+            <form onSubmit={handleSaveHouseholdPin} className="flex flex-wrap gap-2 items-end">
+              <div className="flex flex-col">
+                <label className="text-sm text-slate-600 mb-1">Parent PIN</label>
+                <input
+                  type="password"
+                  className="border border-slate-200 rounded-md px-3 py-2 w-32"
+                  value={newHouseholdPin}
+                  onChange={e => setNewHouseholdPin(e.target.value)}
+                  placeholder={householdPin ? '••••' : 'Not set'}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={pinSaveStatus === 'saving'}
+                className="bg-ease-teal text-white rounded-md px-4 py-2 font-semibold hover:bg-ease-teal-hover disabled:opacity-50"
+              >
+                {pinSaveStatus === 'saving' ? 'Saving...' : pinSaveStatus === 'saved' ? 'Saved' : 'Save PIN'}
+              </button>
+            </form>
+          </section>
+
           {/* Add Kid */}
           <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
             <h2 className="text-lg font-bold text-[#333333] mb-4">Add Kid</h2>

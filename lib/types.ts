@@ -2,6 +2,7 @@ export type Household = {
   id: string
   name: string
   board_code: string | null
+  parent_pin?: string | null
 }
 
 export type Kid = {

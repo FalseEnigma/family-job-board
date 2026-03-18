@@ -10,6 +10,7 @@ create table if not exists public.households (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   board_code text unique,
+  parent_pin text,
   created_at timestamptz not null default now()
 );
 
