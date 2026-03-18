@@ -1,7 +1,24 @@
 'use client'
 
-import { useEffect, useState, FormEvent } from 'react'
+import { useEffect, useRef, useState, FormEvent } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { useSearchParams } from 'next/navigation'
+import type {
+  Kid,
+  Job,
+  Reward,
+  AppSettings,
+  JobBlockedKid,
+  Household,
+  JobTemplate,
+  PendingLog,
+  CompletedLog,
+  JobRequest,
+  PointTransaction,
+  RewardRequest,
+} from '../../lib/types'
+import { DEFAULT_HOUSEHOLD_ID } from '../../lib/constants'
+import { getFriendlyErrorMessage } from '../../lib/utils'
 
 const PARENT_PIN =
   process.env.NEXT_PUBLIC_PARENT_PIN &&
@@ -9,101 +26,10 @@ const PARENT_PIN =
     ? process.env.NEXT_PUBLIC_PARENT_PIN.trim()
     : '1234'
 
-type Kid = {
-  id: string
-  name: string
-  points_balance: number
-  points_lifetime: number
-}
-
-type Job = {
-  id: string
-  name: string
-  description: string | null
-  base_points: number
-  requires_approval: boolean
-  min_age: number | null
-  is_active: boolean
-  is_claimed: boolean
-  claimed_by_kid_id: string | null
-  template_id: string | null
-}
-
-type JobTemplate = {
-  id: string
-  name: string
-  description: string | null
-  base_points: number
-  requires_approval: boolean
-  min_age: number | null
-  frequency_days: number
-  is_active: boolean
-  last_generated_at: string | null
-}
-
-type PendingLog = {
-  id: string
-  job_id: string
-  kid_id: string
-  created_at: string
-  status: string
-}
-
-type CompletedLog = {
-  id: string
-  job_id: string
-  kid_id: string
-  completed_at: string | null
-  approved_at: string | null
-  points_awarded: number | null
-}
-
-type JobRequest = {
-  id: string
-  kid_id: string | null
-  created_at: string
-  message: string | null
-  handled: boolean
-}
-
-type PointTransaction = {
-  id: string
-  kid_id: string
-  type: string
-  amount: number
-  description: string
-  created_at: string
-}
-
-type AppSettings = {
-  id: string
-  show_rewards_on_board: boolean
-}
-
-type Reward = {
-  id: string
-  name: string
-  description: string | null
-  cost_points: number
-  is_active: boolean
-}
-
-type RewardRequest = {
-  id: string
-  kid_id: string
-  reward_id: string
-  status: string
-  created_at: string
-  handled_at: string | null
-  note: string | null
-}
-
-type JobBlockedKid = {
-  job_id: string
-  kid_id: string
-}
-
 export default function ParentPage() {
+  const [householdId, setHouseholdId] = useState<string | null>(null)
+  const [householdName, setHouseholdName] = useState<string | null>(null)
+  const [householdCode, setHouseholdCode] = useState<string | null>(null)
   const [kids, setKids] = useState<Kid[]>([])
   const [jobs, setJobs] = useState<Job[]>([])
   const [jobTemplates, setJobTemplates] = useState<JobTemplate[]>([])
@@ -117,6 +43,15 @@ export default function ParentPage() {
   const [jobBlockedKids, setJobBlockedKids] = useState<JobBlockedKid[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const searchParams = useSearchParams()
+  const householdParam = searchParams.get('household')
+  const boardCodeParam = searchParams.get('board') || searchParams.get('code')
+  const mountedRef = useRef(true)
+
+  const setFriendlyError = (msg: string | null) => {
+    setError(getFriendlyErrorMessage(msg))
+  }
 
   const [newKidName, setNewKidName] = useState('')
   const [newKidColor, setNewKidColor] = useState('#22c55e')
@@ -156,6 +91,10 @@ export default function ParentPage() {
   const [pinInput, setPinInput] = useState('')
   const [pinError, setPinError] = useState<string | null>(null)
 
+  // Tab navigation (must be before any early returns to satisfy Rules of Hooks)
+  type TabId = 'inbox' | 'kids' | 'jobs' | 'rewards' | 'history'
+  const [activeTab, setActiveTab] = useState<TabId>('inbox')
+
   const resetTemplateForm = () => {
     setNewTemplateName('')
     setNewTemplateDescription('')
@@ -175,7 +114,43 @@ export default function ParentPage() {
     setEditingJobId(null)
   }
 
-  const loadData = async () => {
+  const resolveHousehold = async () => {
+    setLoading(true)
+    setError(null)
+
+    if (householdParam) {
+      setHouseholdId(householdParam)
+      setHouseholdName(null)
+      setHouseholdCode(null)
+      return
+    }
+
+    if (boardCodeParam) {
+      const { data, error } = await supabase
+        .from('households')
+        .select('id, name, board_code')
+        .eq('board_code', boardCodeParam)
+        .single()
+
+      if (error || !data) {
+        setFriendlyError(error?.message ?? 'No household found for that board code.')
+        setLoading(false)
+        return
+      }
+
+      const household = data as Household
+      setHouseholdId(household.id)
+      setHouseholdName(household.name)
+      setHouseholdCode(household.board_code)
+      return
+    }
+
+    setHouseholdId(DEFAULT_HOUSEHOLD_ID)
+    setHouseholdName('Default Family')
+    setHouseholdCode(null)
+  }
+
+  const loadData = async (activeHouseholdId: string) => {
     setLoading(true)
     setError(null)
 
@@ -203,28 +178,33 @@ export default function ParentPage() {
         .from('kids')
         .select('id, name, points_balance, points_lifetime')
         .eq('is_active', true)
+        .eq('household_id', activeHouseholdId)
         .order('created_at', { ascending: true }),
       supabase
         .from('jobs')
         .select(
           'id, name, description, base_points, requires_approval, min_age, is_active, is_claimed, claimed_by_kid_id, template_id'
         )
+        .eq('household_id', activeHouseholdId)
         .order('created_at', { ascending: true }),
       supabase
         .from('job_templates')
         .select(
           'id, name, description, base_points, requires_approval, min_age, frequency_days, is_active, last_generated_at'
         )
+        .eq('household_id', activeHouseholdId)
         .order('created_at', { ascending: true }),
       supabase
         .from('job_logs')
         .select('id, job_id, kid_id, created_at, status')
         .eq('status', 'COMPLETED')
+        .eq('household_id', activeHouseholdId)
         .order('created_at', { ascending: false }),
       supabase
         .from('job_requests')
         .select('id, kid_id, created_at, message, handled')
         .eq('handled', false)
+        .eq('household_id', activeHouseholdId)
         .order('created_at', { ascending: false }),
       supabase
         .from('job_logs')
@@ -232,116 +212,102 @@ export default function ParentPage() {
           'id, job_id, kid_id, completed_at, approved_at, points_awarded, status'
         )
         .eq('status', 'APPROVED')
+        .eq('household_id', activeHouseholdId)
         .order('approved_at', { ascending: false })
         .limit(50),
       supabase
         .from('point_transactions')
         .select('id, kid_id, type, amount, description, created_at')
+        .eq('household_id', activeHouseholdId)
         .order('created_at', { ascending: false })
         .limit(50),
       supabase
         .from('app_settings')
         .select('id, show_rewards_on_board')
+        .eq('household_id', activeHouseholdId)
         .limit(1),
       supabase
         .from('rewards')
         .select('id, name, description, cost_points, is_active')
+        .eq('household_id', activeHouseholdId)
         .order('created_at', { ascending: true }),
       supabase
         .from('reward_requests')
         .select('id, kid_id, reward_id, status, created_at, handled_at, note')
+        .eq('household_id', activeHouseholdId)
         .order('created_at', { ascending: false })
         .limit(50),
-      supabase.from('job_blocked_kids').select('job_id, kid_id')
+      supabase
+        .from('job_blocked_kids')
+        .select('job_id, kid_id')
+        .eq('household_id', activeHouseholdId)
     ])
 
-    if (kidsRes.error) {
-      setError(kidsRes.error.message)
+    const firstError =
+      kidsRes.error?.message ??
+      jobsRes.error?.message ??
+      templatesRes.error?.message ??
+      pendingRes.error?.message ??
+      requestsRes.error?.message ??
+      completedRes.error?.message ??
+      txRes.error?.message ??
+      settingsRes.error?.message ??
+      rewardsRes.error?.message ??
+      rewardReqRes.error?.message ??
+      blockedRes.error?.message
+
+    if (firstError) {
+      setFriendlyError(firstError)
       setLoading(false)
       return
     }
 
-    if (jobsRes.error) {
-      setError(jobsRes.error.message)
-      setLoading(false)
-      return
-    }
+    if (!mountedRef.current) return
 
-    if (templatesRes.error) {
-      setError(templatesRes.error.message)
-      setLoading(false)
-      return
-    }
-
-    if (pendingRes.error) {
-      setError(pendingRes.error.message)
-      setLoading(false)
-      return
-    }
-
-    if (requestsRes.error) {
-      setError(requestsRes.error.message)
-      setLoading(false)
-      return
-    }
-
-    if (completedRes.error) {
-      setError(completedRes.error.message)
-      setLoading(false)
-      return
-    }
-
-    if (txRes.error) {
-      setError(txRes.error.message)
-      setLoading(false)
-      return
-    }
-
-    if (settingsRes.error) {
-      setError(settingsRes.error.message)
-      setLoading(false)
-      return
-    }
-
-    if (rewardsRes.error) {
-      setError(rewardsRes.error.message)
-      setLoading(false)
-      return
-    }
-
-    if (rewardReqRes.error) {
-      setError(rewardReqRes.error.message)
-      setLoading(false)
-      return
-    }
-
-    if (blockedRes.error) {
-      setError(blockedRes.error.message)
-      setLoading(false)
-      return
-    }
-
-    setKids(kidsRes.data || [])
-    setJobs(jobsRes.data || [])
-    setJobTemplates(templatesRes.data || [])
-    setPendingLogs(pendingRes.data || [])
-    setJobRequests(requestsRes.data || [])
-    setCompletedLogs(completedRes.data || [])
-    setPointTxns(txRes.data || [])
+    setKids((kidsRes.data || []) as Kid[])
+    setJobs((jobsRes.data || []) as Job[])
+    setJobTemplates((templatesRes.data || []) as JobTemplate[])
+    setPendingLogs((pendingRes.data || []) as PendingLog[])
+    setJobRequests((requestsRes.data || []) as JobRequest[])
+    setCompletedLogs((completedRes.data || []) as CompletedLog[])
+    setPointTxns((txRes.data || []) as PointTransaction[])
     setSettings(
       settingsRes.data && settingsRes.data.length > 0
-        ? settingsRes.data[0]
+        ? (settingsRes.data[0] as AppSettings)
         : null
     )
-    setRewards(rewardsRes.data || [])
-    setRewardRequests(rewardReqRes.data || [])
-    setJobBlockedKids(blockedRes.data || [])
+    setRewards((rewardsRes.data || []) as Reward[])
+    setRewardRequests((rewardReqRes.data || []) as RewardRequest[])
+    setJobBlockedKids((blockedRes.data || []) as JobBlockedKid[])
     setLoading(false)
   }
 
   useEffect(() => {
-    loadData()
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
   }, [])
+
+  useEffect(() => {
+    resolveHousehold()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [householdParam, boardCodeParam])
+
+  useEffect(() => {
+    if (householdId) {
+      loadData(householdId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [householdId])
+
+  const requireHouseholdId = () => {
+    if (!householdId) {
+      setError('Household not ready yet.')
+      return null
+    }
+    return householdId
+  }
 
   const handleUnlock = (e: FormEvent) => {
     e.preventDefault()
@@ -358,6 +324,8 @@ export default function ParentPage() {
   const handleAddKid = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     if (!newKidName.trim()) {
       setError('Kid name is required')
@@ -367,7 +335,8 @@ export default function ParentPage() {
     const { error } = await supabase.from('kids').insert({
       name: newKidName.trim(),
       color: newKidColor,
-      age: newKidAge === '' ? null : newKidAge
+      age: newKidAge === '' ? null : newKidAge,
+      household_id: activeHouseholdId
     })
 
     if (error) {
@@ -377,12 +346,14 @@ export default function ParentPage() {
 
     setNewKidName('')
     setNewKidAge('')
-    loadData()
+    loadData(activeHouseholdId)
   }
 
   const handleJobSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     if (!newJobName.trim()) {
       setError('Job name is required')
@@ -402,6 +373,7 @@ export default function ParentPage() {
         .from('jobs')
         .update(basePayload)
         .eq('id', editingJobId)
+        .eq('household_id', activeHouseholdId)
 
       if (error) {
         setError(error.message)
@@ -409,11 +381,13 @@ export default function ParentPage() {
       }
 
       resetJobForm()
-      await loadData()
+      await loadData(activeHouseholdId)
       return
     }
 
-    const { error } = await supabase.from('jobs').insert(basePayload)
+    const { error } = await supabase
+      .from('jobs')
+      .insert({ ...basePayload, household_id: activeHouseholdId })
 
     if (error) {
       setError(error.message)
@@ -421,12 +395,14 @@ export default function ParentPage() {
     }
 
     resetJobForm()
-    loadData()
+    loadData(activeHouseholdId)
   }
 
   const handleTemplateSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     if (!newTemplateName.trim()) {
       setError('Template name is required')
@@ -452,6 +428,7 @@ export default function ParentPage() {
         .from('job_templates')
         .update(basePayload)
         .eq('id', editingTemplateId)
+        .eq('household_id', activeHouseholdId)
 
       if (error) {
         setError(error.message)
@@ -459,11 +436,13 @@ export default function ParentPage() {
       }
 
       resetTemplateForm()
-      await loadData()
+      await loadData(activeHouseholdId)
       return
     }
 
-    const { error } = await supabase.from('job_templates').insert(basePayload)
+    const { error } = await supabase
+      .from('job_templates')
+      .insert({ ...basePayload, household_id: activeHouseholdId })
 
     if (error) {
       setError(error.message)
@@ -471,11 +450,13 @@ export default function ParentPage() {
     }
 
     resetTemplateForm()
-    await loadData()
+    await loadData(activeHouseholdId)
   }
 
   const handleGenerateFromTemplates = async () => {
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     if (jobTemplates.length === 0) {
       window.alert('No recurring job templates yet.')
@@ -522,7 +503,8 @@ export default function ParentPage() {
       is_active: true,
       is_claimed: false,
       claimed_by_kid_id: null,
-      template_id: t.id
+      template_id: t.id,
+      household_id: activeHouseholdId
     }))
 
     const { error: insertError } = await supabase.from('jobs').insert(inserts)
@@ -539,29 +521,33 @@ export default function ParentPage() {
         'id',
         dueTemplates.map(t => t.id)
       )
+      .eq('household_id', activeHouseholdId)
 
     if (updateError) {
       setError(updateError.message)
       return
     }
 
-    await loadData()
+    await loadData(activeHouseholdId)
   }
 
   const handleToggleTemplateActive = async (template: JobTemplate) => {
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     const { error } = await supabase
       .from('job_templates')
       .update({ is_active: !template.is_active })
       .eq('id', template.id)
+      .eq('household_id', activeHouseholdId)
 
     if (error) {
       setError(error.message)
       return
     }
 
-    await loadData()
+    await loadData(activeHouseholdId)
   }
 
   const handleStartEditTemplate = (template: JobTemplate) => {
@@ -593,6 +579,8 @@ export default function ParentPage() {
 
   const handleApprove = async (log: PendingLog) => {
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     const job = jobs.find(j => j.id === log.job_id)
     if (!job) {
@@ -606,6 +594,7 @@ export default function ParentPage() {
       .from('kids')
       .select('points_balance, points_lifetime')
       .eq('id', log.kid_id)
+      .eq('household_id', activeHouseholdId)
       .single()
 
     if (kidError || !kidRow) {
@@ -623,6 +612,7 @@ export default function ParentPage() {
         points_awarded: points
       })
       .eq('id', log.id)
+      .eq('household_id', activeHouseholdId)
 
     if (logError) {
       setError(logError.message)
@@ -636,49 +626,58 @@ export default function ParentPage() {
         points_lifetime: kidRow.points_lifetime + points
       })
       .eq('id', log.kid_id)
+      .eq('household_id', activeHouseholdId)
 
     if (kidUpdateError) {
       setError(kidUpdateError.message)
       return
     }
 
-    await loadData()
+    await loadData(activeHouseholdId)
   }
 
   const handleReject = async (log: PendingLog) => {
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     const { error: logError } = await supabase
       .from('job_logs')
       .update({ status: 'REJECTED' })
       .eq('id', log.id)
+      .eq('household_id', activeHouseholdId)
 
     if (logError) {
       setError(logError.message)
       return
     }
 
-    await loadData()
+    await loadData(activeHouseholdId)
   }
 
   const handleMarkRequestHandled = async (req: JobRequest) => {
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     const { error } = await supabase
       .from('job_requests')
       .update({ handled: true })
       .eq('id', req.id)
+      .eq('household_id', activeHouseholdId)
 
     if (error) {
       setError(error.message)
       return
     }
 
-    await loadData()
+    await loadData(activeHouseholdId)
   }
 
   const handleUnapproveAndReturn = async (log: CompletedLog) => {
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     const job = jobs.find(j => j.id === log.job_id)
     const kid = kids.find(k => k.id === log.kid_id)
@@ -704,6 +703,7 @@ export default function ParentPage() {
         points_lifetime: newLifetime
       })
       .eq('id', kid.id)
+      .eq('household_id', activeHouseholdId)
 
     if (kidError) {
       setError(kidError.message)
@@ -716,6 +716,7 @@ export default function ParentPage() {
         status: 'REJECTED'
       })
       .eq('id', log.id)
+      .eq('household_id', activeHouseholdId)
 
     if (logError) {
       setError(logError.message)
@@ -730,17 +731,20 @@ export default function ParentPage() {
         claimed_by_kid_id: null
       })
       .eq('id', job.id)
+      .eq('household_id', activeHouseholdId)
 
     if (jobError) {
       setError(jobError.message)
       return
     }
 
-    await loadData()
+    await loadData(activeHouseholdId)
   }
 
   const handleSpendPoints = async () => {
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     if (!adjustKidId) {
       setError('Select a kid.')
@@ -776,6 +780,7 @@ export default function ParentPage() {
         points_balance: newBalance
       })
       .eq('id', kid.id)
+      .eq('household_id', activeHouseholdId)
 
     if (error) {
       setError(error.message)
@@ -788,7 +793,8 @@ export default function ParentPage() {
         kid_id: kid.id,
         type: 'SPEND',
         amount: amt,
-        description: adjustReason.trim()
+        description: adjustReason.trim(),
+        household_id: activeHouseholdId
       })
 
     if (txError) {
@@ -797,11 +803,13 @@ export default function ParentPage() {
 
     setAdjustAmount('')
     setAdjustReason('')
-    await loadData()
+    await loadData(activeHouseholdId)
   }
 
   const handleSubtractPoints = async () => {
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     if (!adjustKidId) {
       setError('Select a kid.')
@@ -834,6 +842,7 @@ export default function ParentPage() {
         points_lifetime: newLifetime
       })
       .eq('id', kid.id)
+      .eq('household_id', activeHouseholdId)
 
     if (error) {
       setError(error.message)
@@ -846,7 +855,8 @@ export default function ParentPage() {
         kid_id: kid.id,
         type: 'PENALTY',
         amount: amt,
-        description: adjustReason.trim()
+        description: adjustReason.trim(),
+        household_id: activeHouseholdId
       })
 
     if (txError) {
@@ -855,11 +865,13 @@ export default function ParentPage() {
 
     setAdjustAmount('')
     setAdjustReason('')
-    await loadData()
+    await loadData(activeHouseholdId)
   }
 
   const handleUnclaimJobAsParent = async (job: Job) => {
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     if (!job.is_claimed) return
 
@@ -881,17 +893,20 @@ export default function ParentPage() {
         claimed_by_kid_id: null
       })
       .eq('id', job.id)
+      .eq('household_id', activeHouseholdId)
 
     if (error) {
       setError(error.message)
       return
     }
 
-    await loadData()
+    await loadData(activeHouseholdId)
   }
 
   const handleDeactivateJob = async (job: Job) => {
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     const confirmed = window.confirm(
       `Remove "${job.name}" from the board? Kids won't see it anymore.`
@@ -902,13 +917,14 @@ export default function ParentPage() {
       .from('jobs')
       .update({ is_active: false })
       .eq('id', job.id)
+      .eq('household_id', activeHouseholdId)
 
     if (error) {
       setError(error.message)
       return
     }
 
-    await loadData()
+    await loadData(activeHouseholdId)
   }
 
   const isKidBlockedForJob = (jobId: string, kidId: string) =>
@@ -918,6 +934,8 @@ export default function ParentPage() {
 
   const handleToggleKidBlockedForJob = async (jobId: string, kidId: string) => {
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     const blocked = isKidBlockedForJob(jobId, kidId)
 
@@ -927,6 +945,7 @@ export default function ParentPage() {
         .delete()
         .eq('job_id', jobId)
         .eq('kid_id', kidId)
+        .eq('household_id', activeHouseholdId)
 
       if (error) {
         setError(error.message)
@@ -941,7 +960,11 @@ export default function ParentPage() {
     } else {
       const { error } = await supabase
         .from('job_blocked_kids')
-        .insert({ job_id: jobId, kid_id: kidId })
+        .insert({
+          job_id: jobId,
+          kid_id: kidId,
+          household_id: activeHouseholdId
+        })
 
       if (error) {
         setError(error.message)
@@ -954,11 +977,14 @@ export default function ParentPage() {
 
   const handleToggleRewardsVisible = async (value: boolean) => {
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
     if (settings && settings.id) {
       const { error } = await supabase
         .from('app_settings')
         .update({ show_rewards_on_board: value })
         .eq('id', settings.id)
+        .eq('household_id', activeHouseholdId)
 
       if (error) {
         setError(error.message)
@@ -968,7 +994,10 @@ export default function ParentPage() {
     } else {
       const { data, error } = await supabase
         .from('app_settings')
-        .insert({ show_rewards_on_board: value })
+        .insert({
+          show_rewards_on_board: value,
+          household_id: activeHouseholdId
+        })
         .select('id, show_rewards_on_board')
         .single()
 
@@ -982,23 +1011,28 @@ export default function ParentPage() {
 
   const handleToggleRewardActive = async (reward: Reward) => {
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     const { error } = await supabase
       .from('rewards')
       .update({ is_active: !reward.is_active })
       .eq('id', reward.id)
+      .eq('household_id', activeHouseholdId)
 
     if (error) {
       setError(error.message)
       return
     }
 
-    await loadData()
+    await loadData(activeHouseholdId)
   }
 
   const handleAddReward = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     if (!newRewardName.trim()) {
       setError('Reward name is required.')
@@ -1014,7 +1048,8 @@ export default function ParentPage() {
       name: newRewardName.trim(),
       description: newRewardDescription.trim() || null,
       cost_points: newRewardCost,
-      is_active: newRewardActive
+      is_active: newRewardActive,
+      household_id: activeHouseholdId
     })
 
     if (error) {
@@ -1026,11 +1061,13 @@ export default function ParentPage() {
     setNewRewardDescription('')
     setNewRewardCost(10)
     setNewRewardActive(true)
-    await loadData()
+    await loadData(activeHouseholdId)
   }
 
   const handleApproveRewardRequest = async (req: RewardRequest) => {
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     const kid = kids.find(k => k.id === req.kid_id)
     const reward = rewards.find(r => r.id === req.reward_id)
@@ -1062,6 +1099,7 @@ export default function ParentPage() {
         points_balance: newBalance
       })
       .eq('id', kid.id)
+      .eq('household_id', activeHouseholdId)
 
     if (kidError) {
       setError(kidError.message)
@@ -1075,6 +1113,7 @@ export default function ParentPage() {
         handled_at: now
       })
       .eq('id', req.id)
+      .eq('household_id', activeHouseholdId)
 
     if (reqError) {
       setError(reqError.message)
@@ -1085,6 +1124,7 @@ export default function ParentPage() {
       .from('point_transactions')
       .insert({
         kid_id: kid.id,
+        household_id: activeHouseholdId,
         type: 'SPEND',
         amount: reward.cost_points,
         description: `Redeemed for "${reward.name}"`
@@ -1095,11 +1135,13 @@ export default function ParentPage() {
       // main flow still succeeded
     }
 
-    await loadData()
+    await loadData(activeHouseholdId)
   }
 
   const handleRejectRewardRequest = async (req: RewardRequest) => {
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     const { error } = await supabase
       .from('reward_requests')
@@ -1108,19 +1150,23 @@ export default function ParentPage() {
         handled_at: new Date().toISOString()
       })
       .eq('id', req.id)
+      .eq('household_id', activeHouseholdId)
 
     if (error) {
       setError(error.message)
       return
     }
 
-    await loadData()
+    await loadData(activeHouseholdId)
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        Loading...
+      <div className="flex items-center justify-center h-screen bg-ease-bg">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-ease-teal border-t-transparent" />
+          <span className="text-[#666666]">Loading...</span>
+        </div>
       </div>
     )
   }
@@ -1128,9 +1174,9 @@ export default function ParentPage() {
   // PIN gate UI
   if (!unlocked) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <div className="bg-white rounded-xl shadow border border-slate-200 p-6 w-full max-w-sm">
-          <h1 className="text-xl font-semibold mb-3 text-slate-900">
+      <div className="min-h-screen bg-ease-bg flex items-center justify-center p-4">
+        <div className="bg-white rounded-md shadow-sm border border-slate-200/60 p-6 w-full max-w-sm">
+          <h1 className="text-xl font-bold text-slate-900 mb-2">
             Parent access
           </h1>
           <p className="text-sm text-slate-600 mb-4">
@@ -1139,7 +1185,7 @@ export default function ParentPage() {
           <form onSubmit={handleUnlock} className="space-y-3">
             <input
               type="password"
-              className="border rounded px-3 py-2 w-full"
+              className="border border-slate-200 rounded-xl px-4 py-2.5 w-full focus:ring-2 focus:ring-slate-400 focus:border-slate-400 outline-none"
               value={pinInput}
               onChange={e => setPinInput(e.target.value)}
               placeholder="PIN"
@@ -1149,7 +1195,7 @@ export default function ParentPage() {
             )}
             <button
               type="submit"
-              className="w-full bg-slate-900 text-white rounded-lg px-4 py-2 font-semibold hover:bg-slate-800"
+              className="w-full bg-ease-teal text-white rounded-md px-4 py-2.5 font-semibold hover:bg-ease-teal-hover transition-colors"
             >
               Unlock
             </button>
@@ -1165,23 +1211,75 @@ export default function ParentPage() {
   const pendingRewardRequests = rewardRequests.filter(
     r => r.status === 'PENDING'
   )
+  const inboxCount = jobRequests.length + pendingRewardRequests.length + pendingLogs.length
+
+  const tabs: { id: TabId; label: string; count?: number }[] = [
+    { id: 'inbox', label: 'Inbox', count: inboxCount },
+    { id: 'kids', label: 'Kids' },
+    { id: 'jobs', label: 'Jobs' },
+    { id: 'rewards', label: 'Rewards' },
+    { id: 'history', label: 'History' },
+  ]
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 p-4 space-y-6">
-      <h1 className="text-2xl font-bold">Parent Dashboard</h1>
+    <div className="min-h-screen bg-ease-bg text-[#333333]">
+      {/* Header - Ease-style clean nav */}
+      <header className="sticky top-0 z-10 bg-white border-b border-slate-200/80 shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#333333]">Parent Dashboard</h1>
+              <div className="text-xs text-[#666666] mt-1">
+                {householdName || 'Loading...'}
+                {householdCode && ` • Code: ${householdCode}`}
+              </div>
+            </div>
+            <nav className="flex gap-1 overflow-x-auto pb-1 sm:pb-0">
+              {tabs.map(({ id, label, count }) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveTab(id)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all duration-200 border-b-2 ${
+                    activeTab === id
+                      ? 'text-ease-teal border-ease-teal'
+                      : 'text-[#666666] border-transparent hover:text-[#333333]'
+                  }`}
+                >
+                  {label}
+                  {count !== undefined && count > 0 && (
+                    <span className="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded bg-sky-100 text-ease-teal text-xs font-semibold">
+                      {count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </nav>
+          </div>
+        </div>
+      </header>
 
+      <main className="max-w-6xl mx-auto p-4 sm:p-6">
       {error && (
-        <div className="bg-red-100 text-red-800 px-3 py-2 rounded">
-          {error}
+        <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md flex items-center justify-between gap-2">
+          <span>{error}</span>
+          {error.includes('Connection error') && householdId && (
+            <button
+              onClick={() => loadData(householdId)}
+              className="px-3 py-1.5 rounded-md bg-ease-teal text-white hover:bg-ease-teal-hover font-semibold text-sm"
+            >
+              Retry
+            </button>
+          )}
         </div>
       )}
 
-      {/* TOP: Requests & Approvals */}
-      <div className="grid gap-4 xl:grid-cols-2">
-        <div className="space-y-4">
+      {/* Tab: Inbox */}
+      {activeTab === 'inbox' && (
+      <div className="space-y-6">
+      <div className="max-w-2xl space-y-4">
           {/* Job requests */}
-          <section className="bg-white rounded-xl p-4 shadow border border-slate-200">
-            <h2 className="text-lg font-semibold mb-3">Job requests</h2>
+          <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
+            <h2 className="text-lg font-bold text-[#333333] mb-4">Job requests</h2>
             {jobRequests.length === 0 ? (
               <div className="text-sm text-slate-600">
                 No new job requests.
@@ -1197,19 +1295,19 @@ export default function ParentPage() {
                   return (
                     <div
                       key={req.id}
-                      className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2"
+                      className="flex items-center justify-between bg-slate-50/50 border border-slate-200 rounded-md px-4 py-3"
                     >
                       <div>
-                        <div className="text-sm font-semibold">
+                        <div className="text-sm font-semibold text-[#333333]">
                           {kid ? kid.name : 'Unknown kid'} requested a job
                         </div>
-                        <div className="text-xs text-slate-500">
+                        <div className="text-xs text-[#666666] mt-0.5">
                           {created.toLocaleString()}
                         </div>
                       </div>
                       <button
                         onClick={() => handleMarkRequestHandled(req)}
-                        className="text-xs px-3 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-200"
+                        className="text-xs px-3 py-1.5 rounded-md bg-ease-teal text-white hover:bg-ease-teal-hover font-medium"
                       >
                         Mark handled
                       </button>
@@ -1221,8 +1319,8 @@ export default function ParentPage() {
           </section>
 
           {/* Reward requests */}
-          <section className="bg-white rounded-xl p-4 shadow border border-slate-200">
-            <h2 className="text-lg font-semibold mb-3">Reward requests</h2>
+          <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
+            <h2 className="text-lg font-bold text-[#333333] mb-4">Reward requests</h2>
             {pendingRewardRequests.length === 0 ? (
               <div className="text-sm text-slate-600">
                 No pending reward requests.
@@ -1239,13 +1337,13 @@ export default function ParentPage() {
                   return (
                     <div
                       key={req.id}
-                      className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2"
+                      className="flex items-center justify-between bg-slate-50/50 border border-slate-200 rounded-md px-4 py-3"
                     >
                       <div>
-                        <div className="text-sm font-semibold">
+                        <div className="text-sm font-semibold text-[#333333]">
                           {kid.name} requested: {reward.name}
                         </div>
-                        <div className="text-xs text-slate-500">
+                        <div className="text-xs text-[#666666] mt-0.5">
                           {created.toLocaleString()} • {reward.cost_points} pts
                           • balance {kid.points_balance}
                         </div>
@@ -1253,13 +1351,13 @@ export default function ParentPage() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleRejectRewardRequest(req)}
-                          className="text-xs px-3 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-200"
+                          className="text-xs px-3 py-1.5 rounded-md border border-slate-300 text-[#666666] hover:bg-slate-100 font-medium"
                         >
                           Reject
                         </button>
                         <button
                           onClick={() => handleApproveRewardRequest(req)}
-                          className="text-xs px-3 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-500"
+                          className="text-xs px-3 py-1.5 rounded-md bg-ease-teal text-white hover:bg-ease-teal-hover font-semibold"
                         >
                           Approve
                         </button>
@@ -1272,8 +1370,8 @@ export default function ParentPage() {
           </section>
 
           {/* Pending job approvals */}
-          <section className="bg-white rounded-xl p-4 shadow border border-slate-200">
-            <h2 className="text-lg font-semibold mb-3">
+          <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
+            <h2 className="text-lg font-bold text-[#333333] mb-4">
               Pending job approvals
             </h2>
             {pendingLogs.length === 0 ? (
@@ -1292,26 +1390,26 @@ export default function ParentPage() {
                   return (
                     <div
                       key={log.id}
-                      className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2"
+                      className="flex items-center justify-between bg-slate-50/50 border border-slate-200 rounded-md px-4 py-3"
                     >
                       <div>
-                        <div className="text-sm font-semibold">
+                        <div className="text-sm font-semibold text-[#333333]">
                           {kid.name} – {job.name}
                         </div>
-                        <div className="text-xs text-slate-500">
+                        <div className="text-xs text-[#666666] mt-0.5">
                           {created.toLocaleString()} • {job.base_points} pts
                         </div>
                       </div>
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleReject(log)}
-                          className="text-xs px-3 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-200"
+                          className="text-xs px-3 py-1.5 rounded-md border border-slate-300 text-[#666666] hover:bg-slate-100 font-medium"
                         >
                           Reject
                         </button>
                         <button
                           onClick={() => handleApprove(log)}
-                          className="text-xs px-3 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-500"
+                          className="text-xs px-3 py-1.5 rounded-md bg-ease-teal text-white hover:bg-ease-teal-hover font-semibold"
                         >
                           Approve
                         </button>
@@ -1322,111 +1420,17 @@ export default function ParentPage() {
               </div>
             )}
           </section>
-        </div>
-
-        <div className="space-y-4">
-          {/* Recent completed jobs */}
-          <section className="bg-white rounded-xl p-4 shadow border border-slate-200">
-            <h2 className="text-lg font-semibold mb-3">
-              Recent completed jobs
-            </h2>
-            {completedLogs.length === 0 ? (
-              <div className="text-sm text-slate-600">
-                No completed jobs yet.
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {completedLogs.map(log => {
-                  const job = jobs.find(j => j.id === log.job_id)
-                  const kid = kids.find(k => k.id === log.kid_id)
-                  if (!job || !kid) return null
-
-                  const when = log.approved_at || log.completed_at
-                  const whenDate = when ? new Date(when) : null
-                  const points = log.points_awarded ?? job.base_points
-
-                  return (
-                    <div
-                      key={log.id}
-                      className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2"
-                    >
-                      <div>
-                        <div className="text-sm font-semibold">
-                          {kid.name} – {job.name}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {whenDate
-                            ? whenDate.toLocaleString()
-                            : 'Completed'}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="text-xs font-semibold text-slate-800">
-                          {points} pts
-                        </div>
-                        <button
-                          onClick={() => handleUnapproveAndReturn(log)}
-                          className="text-[10px] px-2 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-200"
-                        >
-                          Unapprove & return
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </section>
-
-          {/* Recent point transactions */}
-          <section className="bg-white rounded-xl p-4 shadow border border-slate-200">
-            <h2 className="text-lg font-semibold mb-3">
-              Recent point transactions
-            </h2>
-            {pointTxns.length === 0 ? (
-              <div className="text-sm text-slate-600">
-                No point transactions yet.
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {pointTxns.map(tx => {
-                  const kid = kids.find(k => k.id === tx.kid_id)
-                  if (!kid) return null
-                  const when = new Date(tx.created_at)
-
-                  return (
-                    <div
-                      key={tx.id}
-                      className="flex justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2"
-                    >
-                      <div>
-                        <div className="text-sm font-semibold">
-                          {kid.name} –{' '}
-                          {tx.type === 'SPEND' ? 'Spent' : 'Penalty'}{' '}
-                          {tx.amount} pts
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {when.toLocaleString()}
-                        </div>
-                        <div className="text-xs text-slate-600">
-                          {tx.description}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </section>
-        </div>
       </div>
+      </div>
+      )}
 
-      {/* MIDDLE: Kids, balances, and rewards */}
-      <div className="grid gap-4 xl:grid-cols-2">
+      {/* Tab: Kids */}
+      {activeTab === 'kids' && (
+      <div className="space-y-6 max-w-3xl">
         <div className="space-y-4">
           {/* Add Kid */}
-          <section className="bg-white rounded-xl p-4 shadow border border-slate-200">
-            <h2 className="text-lg font-semibold mb-3">Add Kid</h2>
+          <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
+            <h2 className="text-lg font-bold text-[#333333] mb-4">Add Kid</h2>
             <form
               className="grid gap-3 md:grid-cols-4 items-end"
               onSubmit={handleAddKid}
@@ -1466,7 +1470,7 @@ export default function ParentPage() {
               </div>
               <button
                 type="submit"
-                className="bg-slate-900 text-white rounded-lg px-4 py-2 font-semibold hover:bg-slate-800"
+                className="bg-ease-teal text-white rounded-md px-4 py-2 font-semibold hover:bg-ease-teal-hover"
               >
                 Add Kid
               </button>
@@ -1480,7 +1484,7 @@ export default function ParentPage() {
               {kids.map(kid => (
                 <div
                   key={kid.id}
-                  className="bg-white rounded-xl p-4 shadow border border-slate-200 flex justify-between items-center"
+                  className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60 flex justify-between items-center"
                 >
                   <div>
                     <div className="text-lg font-semibold">
@@ -1514,8 +1518,8 @@ export default function ParentPage() {
           </section>
 
           {/* Adjust points */}
-          <section className="bg-white rounded-xl p-4 shadow border border-slate-200">
-            <h2 className="text-lg font-semibold mb-3">Adjust points</h2>
+          <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
+            <h2 className="text-lg font-bold text-[#333333] mb-4">Adjust points</h2>
             {kids.length === 0 ? (
               <div className="text-sm text-slate-600">
                 Add a kid first.
@@ -1584,10 +1588,13 @@ export default function ParentPage() {
             )}
           </section>
         </div>
+      </div>
+      )}
 
-        {/* Reward catalog + toggle */}
-        <div>
-          <section className="bg-white rounded-xl p-4 shadow border border-slate-200">
+      {/* Tab: Rewards */}
+      {activeTab === 'rewards' && (
+      <div className="space-y-6 max-w-3xl">
+          <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-semibold">Reward catalog</h2>
               <label className="flex items-center gap-2 text-sm text-slate-700">
@@ -1653,7 +1660,7 @@ export default function ParentPage() {
               </label>
               <button
                 type="submit"
-                className="bg-slate-900 text-white rounded-lg px-4 py-2 font-semibold hover:bg-slate-800 md:col-span-4"
+                className="bg-ease-teal text-white rounded-md px-4 py-2 font-semibold hover:bg-ease-teal-hover md:col-span-4"
               >
                 Add reward
               </button>
@@ -1669,7 +1676,7 @@ export default function ParentPage() {
                 {rewards.map(r => (
                   <div
                     key={r.id}
-                    className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2"
+                    className="bg-slate-50/50 border border-slate-200 rounded-md px-4 py-3"
                   >
                     <div className="text-sm font-semibold">{r.name}</div>
                     {r.description && (
@@ -1694,14 +1701,16 @@ export default function ParentPage() {
               </div>
             )}
           </section>
-        </div>
       </div>
+      )}
 
-      {/* BOTTOM: Jobs & templates */}
-      <div className="grid gap-4 xl:grid-cols-2">
+      {/* Tab: Jobs */}
+      {activeTab === 'jobs' && (
+      <div className="space-y-6 max-w-5xl">
+        <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
           {/* Add recurring template */}
-          <section className="bg-white rounded-xl p-4 shadow border border-slate-200">
+          <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-lg font-semibold">
                 {editingTemplateId
@@ -1803,7 +1812,7 @@ export default function ParentPage() {
               </label>
               <button
                 type="submit"
-                className="bg-slate-900 text-white rounded-lg px-4 py-2 font-semibold hover:bg-slate-800 md:col-span-4"
+                className="bg-ease-teal text-white rounded-md px-4 py-2 font-semibold hover:bg-ease-teal-hover md:col-span-4"
               >
                 {editingTemplateId ? 'Save changes' : 'Add template'}
               </button>
@@ -1811,14 +1820,14 @@ export default function ParentPage() {
           </section>
 
           {/* Recurring templates list + generate button */}
-          <section className="bg-white rounded-xl p-4 shadow border border-slate-200">
+          <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-semibold">
                 Recurring job templates
               </h2>
               <button
                 onClick={handleGenerateFromTemplates}
-                className="text-xs px-3 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-500"
+                className="text-xs px-3 py-2 rounded-md bg-ease-teal text-white hover:bg-ease-teal-hover"
               >
                 Generate due jobs
               </button>
@@ -1837,7 +1846,7 @@ export default function ParentPage() {
                   return (
                     <div
                       key={t.id}
-                      className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2"
+                      className="bg-slate-50/50 border border-slate-200 rounded-md px-4 py-3"
                     >
                       <div className="text-sm font-semibold">
                         {t.name}
@@ -1891,7 +1900,7 @@ export default function ParentPage() {
         {/* One-time jobs + Jobs on board */}
         <div className="space-y-4">
           {/* Add one-time Job */}
-          <section className="bg-white rounded-xl p-4 shadow border border-slate-200">
+          <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-lg font-semibold">
                 {editingJobId ? 'Edit one-time job' : 'Add one-time job'}
@@ -1973,7 +1982,7 @@ export default function ParentPage() {
               </label>
               <button
                 type="submit"
-                className="bg-slate-900 text-white rounded-lg px-4 py-2 font-semibold hover:bg-slate-800 md:col-span-4"
+                className="bg-ease-teal text-white rounded-md px-4 py-2 font-semibold hover:bg-ease-teal-hover md:col-span-4"
               >
                 {editingJobId ? 'Save changes' : 'Add one-time job'}
               </button>
@@ -1995,7 +2004,7 @@ export default function ParentPage() {
                   return (
                     <div
                       key={job.id}
-                      className="bg-white rounded-xl p-4 shadow border border-slate-200 flex justify-between"
+                      className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60 flex justify-between"
                     >
                       <div>
                         <div className="text-lg font-semibold">
@@ -2101,7 +2110,80 @@ export default function ParentPage() {
             </div>
           </section>
         </div>
+        </div>
       </div>
+      )}
+
+      {/* Tab: History */}
+      {activeTab === 'history' && (
+      <div className="space-y-6 max-w-4xl">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
+            <h2 className="text-lg font-bold text-[#333333] mb-4">Recent completed jobs</h2>
+            {completedLogs.length === 0 ? (
+              <div className="text-sm text-slate-600">No completed jobs yet.</div>
+            ) : (
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {completedLogs.map(log => {
+                  const job = jobs.find(j => j.id === log.job_id)
+                  const kid = kids.find(k => k.id === log.kid_id)
+                  if (!job || !kid) return null
+                  const when = log.approved_at || log.completed_at
+                  const whenDate = when ? new Date(when) : null
+                  const points = log.points_awarded ?? job.base_points
+                  return (
+                    <div key={log.id} className="flex items-center justify-between bg-slate-50/50 border border-slate-200 rounded-md px-4 py-3">
+                      <div>
+                        <div className="text-sm font-semibold">{kid.name} – {job.name}</div>
+                        <div className="text-xs text-slate-500">
+                          {whenDate ? whenDate.toLocaleString() : 'Completed'}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-xs font-semibold text-slate-800">{points} pts</div>
+                        <button
+                          onClick={() => handleUnapproveAndReturn(log)}
+                          className="text-[10px] px-2 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-200"
+                        >
+                          Unapprove & return
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+          <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
+            <h2 className="text-lg font-bold text-[#333333] mb-4">Recent point transactions</h2>
+            {pointTxns.length === 0 ? (
+              <div className="text-sm text-slate-600">No point transactions yet.</div>
+            ) : (
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {pointTxns.map(tx => {
+                  const kid = kids.find(k => k.id === tx.kid_id)
+                  if (!kid) return null
+                  const when = new Date(tx.created_at)
+                  return (
+                    <div key={tx.id} className="flex justify-between bg-slate-50/50 border border-slate-200 rounded-md px-4 py-3">
+                      <div>
+                        <div className="text-sm font-semibold">
+                          {kid.name} – {tx.type === 'SPEND' ? 'Spent' : 'Penalty'} {tx.amount} pts
+                        </div>
+                        <div className="text-xs text-slate-500">{when.toLocaleString()}</div>
+                        <div className="text-xs text-slate-600">{tx.description}</div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+        </div>
+      </div>
+      )}
+
+      </main>
     </div>
   )
 }

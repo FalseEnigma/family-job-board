@@ -1,49 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
-
-type Kid = {
-  id: string
-  name: string
-  age: number | null
-  color: string | null
-  points_balance: number
-  points_lifetime: number
-}
-
-type Job = {
-  id: string
-  name: string
-  description: string | null
-  base_points: number
-  requires_approval: boolean
-  min_age: number | null
-  is_active: boolean
-  is_claimed: boolean
-  claimed_by_kid_id: string | null
-  template_id: string | null
-}
-
-type AppSettings = {
-  id: string
-  show_rewards_on_board: boolean
-}
-
-type Reward = {
-  id: string
-  name: string
-  description: string | null
-  cost_points: number
-  is_active: boolean
-}
-
-type JobBlockedKid = {
-  job_id: string
-  kid_id: string
-}
+import type { Kid, Job, Reward, AppSettings, JobBlockedKid, Household } from '../../lib/types'
+import { DEFAULT_HOUSEHOLD_ID } from '../../lib/constants'
+import { getFriendlyErrorMessage } from '../../lib/utils'
 
 export default function BoardPage() {
+  const [householdId, setHouseholdId] = useState<string | null>(null)
+  const [householdName, setHouseholdName] = useState<string | null>(null)
+  const [householdCode, setHouseholdCode] = useState<string | null>(null)
   const [kids, setKids] = useState<Kid[]>([])
   const [jobs, setJobs] = useState<Job[]>([])
   const [settings, setSettings] = useState<AppSettings | null>(null)
@@ -53,17 +20,63 @@ export default function BoardPage() {
   const [error, setError] = useState<string | null>(null)
 
   const [selectedKidId, setSelectedKidId] = useState<string | null>(null)
-
   const [rewardModalOpen, setRewardModalOpen] = useState(false)
+  const [actionLoading, setActionLoading] = useState(false)
+
+  const searchParams = useSearchParams()
+  const householdParam = searchParams.get('household')
+  const boardCodeParam = searchParams.get('board') || searchParams.get('code')
+
 
   const selectedKid = kids.find(k => k.id === selectedKidId) || null
+  const mountedRef = useRef(true)
+
+  const setFriendlyError = (msg: string | null) => {
+    setError(getFriendlyErrorMessage(msg))
+  }
 
   const isKidBlockedForJob = (jobId: string, kidId: string) =>
     jobBlockedKids.some(
       entry => entry.job_id === jobId && entry.kid_id === kidId
     )
 
-  const loadData = async () => {
+  const resolveHousehold = async () => {
+    setLoading(true)
+    setError(null)
+
+    if (householdParam) {
+      setHouseholdId(householdParam)
+      setHouseholdName(null)
+      setHouseholdCode(null)
+      return
+    }
+
+    if (boardCodeParam) {
+      const { data, error } = await supabase
+        .from('households')
+        .select('id, name, board_code')
+        .eq('board_code', boardCodeParam)
+        .single()
+
+      if (error || !data) {
+        setFriendlyError(error?.message ?? 'No household found for that board code.')
+        setLoading(false)
+        return
+      }
+
+      const household = data as Household
+      setHouseholdId(household.id)
+      setHouseholdName(household.name)
+      setHouseholdCode(household.board_code)
+      return
+    }
+
+    setHouseholdId(DEFAULT_HOUSEHOLD_ID)
+    setHouseholdName('Default Family')
+    setHouseholdCode(null)
+  }
+
+  const loadData = async (activeHouseholdId: string) => {
     setLoading(true)
     setError(null)
 
@@ -78,68 +91,87 @@ export default function BoardPage() {
         supabase
           .from('kids')
           .select(
-            'id, name, age, color, points_balance, points_lifetime, is_active'
+            'id, name, age, color, points_balance, points_lifetime, is_active, household_id'
           )
           .eq('is_active', true)
+          .eq('household_id', activeHouseholdId)
           .order('created_at', { ascending: true }),
         supabase
           .from('jobs')
           .select(
-            'id, name, description, base_points, requires_approval, min_age, is_active, is_claimed, claimed_by_kid_id, template_id'
+            'id, name, description, base_points, requires_approval, min_age, is_active, is_claimed, claimed_by_kid_id, template_id, household_id'
           )
+          .eq('household_id', activeHouseholdId)
           .order('created_at', { ascending: true }),
         supabase
           .from('app_settings')
-          .select('id, show_rewards_on_board')
+          .select('id, show_rewards_on_board, household_id')
+          .eq('household_id', activeHouseholdId)
           .limit(1),
         supabase
           .from('rewards')
-          .select('id, name, description, cost_points, is_active')
+          .select('id, name, description, cost_points, is_active, household_id')
+          .eq('household_id', activeHouseholdId)
           .order('created_at', { ascending: true }),
-        supabase.from('job_blocked_kids').select('job_id, kid_id')
+        supabase
+          .from('job_blocked_kids')
+          .select('job_id, kid_id, household_id')
+          .eq('household_id', activeHouseholdId)
       ])
 
-    if (kidsRes.error) {
-      setError(kidsRes.error.message)
-      setLoading(false)
-      return
-    }
-    if (jobsRes.error) {
-      setError(jobsRes.error.message)
-      setLoading(false)
-      return
-    }
-    if (settingsRes.error) {
-      setError(settingsRes.error.message)
-      setLoading(false)
-      return
-    }
-    if (rewardsRes.error) {
-      setError(rewardsRes.error.message)
-      setLoading(false)
-      return
-    }
-    if (blockedRes.error) {
-      setError(blockedRes.error.message)
+    const firstError =
+      kidsRes.error?.message ??
+      jobsRes.error?.message ??
+      settingsRes.error?.message ??
+      rewardsRes.error?.message ??
+      blockedRes.error?.message
+
+    if (firstError) {
+      setFriendlyError(firstError)
       setLoading(false)
       return
     }
 
-    setKids((kidsRes.data || []) as any)
-    setJobs((jobsRes.data || []) as any)
+    if (!mountedRef.current) return
+
+    setKids((kidsRes.data || []) as Kid[])
+    setJobs((jobsRes.data || []) as Job[])
     setSettings(
       settingsRes.data && settingsRes.data.length > 0
-        ? (settingsRes.data[0] as any)
+        ? (settingsRes.data[0] as AppSettings)
         : null
     )
-    setRewards((rewardsRes.data || []) as any)
-    setJobBlockedKids((blockedRes.data || []) as any)
+    setRewards((rewardsRes.data || []) as Reward[])
+    setJobBlockedKids((blockedRes.data || []) as JobBlockedKid[])
     setLoading(false)
   }
 
   useEffect(() => {
-    loadData()
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
   }, [])
+
+  useEffect(() => {
+    resolveHousehold()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [householdParam, boardCodeParam])
+
+  useEffect(() => {
+    if (householdId) {
+      loadData(householdId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [householdId])
+
+  const requireHouseholdId = () => {
+    if (!householdId) {
+      setError('Household not ready yet.')
+      return null
+    }
+    return householdId
+  }
 
   const handleSelectKid = (kidId: string) => {
     if (selectedKidId === kidId) {
@@ -156,9 +188,10 @@ export default function BoardPage() {
     }
     return true
   }
-
   const handleJobTap = async (job: Job) => {
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     if (!ensureKidSelected() || !selectedKid) return
 
@@ -179,6 +212,9 @@ export default function BoardPage() {
   }
 
   const handleClaimJob = async (job: Job, kid: Kid) => {
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
+
     // check block list
     if (isKidBlockedForJob(job.id, kid.id)) {
       window.alert('You are not allowed to do this job.')
@@ -188,7 +224,7 @@ export default function BoardPage() {
     // check age
     if (
       job.min_age !== null &&
-      kid.age !== null &&
+      kid.age != null &&
       kid.age < job.min_age
     ) {
       window.alert(`You must be at least ${job.min_age} to do this job.`)
@@ -200,6 +236,7 @@ export default function BoardPage() {
     )
     if (!confirmed) return
 
+    setActionLoading(true)
     const { error } = await supabase
       .from('jobs')
       .update({
@@ -207,23 +244,30 @@ export default function BoardPage() {
         claimed_by_kid_id: kid.id
       })
       .eq('id', job.id)
+      .eq('household_id', activeHouseholdId)
 
     if (error) {
-      setError(error.message)
+      setFriendlyError(error.message)
+      setActionLoading(false)
       return
     }
 
     // clear selection so they must tap name again for next action
     setSelectedKidId(null)
-    await loadData()
+    await loadData(activeHouseholdId)
+    setActionLoading(false)
   }
 
   const handleCompleteJob = async (job: Job, kid: Kid) => {
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
+
     const confirmed = window.confirm(
       `Mark "${job.name}" as done for ${kid.name}?`
     )
     if (!confirmed) return
 
+    setActionLoading(true)
     if (job.requires_approval) {
       // create pending log, remove from board
       const now = new Date().toISOString()
@@ -232,11 +276,13 @@ export default function BoardPage() {
         job_id: job.id,
         kid_id: kid.id,
         status: 'COMPLETED',
-        created_at: now
+        created_at: now,
+        household_id: activeHouseholdId
       })
 
       if (logError) {
-        setError(logError.message)
+        setFriendlyError(logError.message)
+        setActionLoading(false)
         return
       }
 
@@ -246,9 +292,11 @@ export default function BoardPage() {
           is_active: false
         })
         .eq('id', job.id)
+        .eq('household_id', activeHouseholdId)
 
       if (jobError) {
-        setError(jobError.message)
+        setFriendlyError(jobError.message)
+        setActionLoading(false)
         return
       }
 
@@ -256,7 +304,8 @@ export default function BoardPage() {
         'Nice work! A parent needs to approve this job before you get the points.'
       )
       setSelectedKidId(null)
-      await loadData()
+      await loadData(activeHouseholdId)
+      setActionLoading(false)
       return
     }
 
@@ -265,10 +314,12 @@ export default function BoardPage() {
       .from('kids')
       .select('points_balance, points_lifetime')
       .eq('id', kid.id)
+      .eq('household_id', activeHouseholdId)
       .single()
 
     if (kidError || !kidRow) {
-      setError(kidError?.message || 'Kid not found')
+      setFriendlyError(kidError?.message || 'Kid not found')
+      setActionLoading(false)
       return
     }
 
@@ -285,9 +336,11 @@ export default function BoardPage() {
         points_lifetime: newLifetime
       })
       .eq('id', kid.id)
+      .eq('household_id', activeHouseholdId)
 
     if (kidUpdateError) {
-      setError(kidUpdateError.message)
+      setFriendlyError(kidUpdateError.message)
+      setActionLoading(false)
       return
     }
 
@@ -297,11 +350,13 @@ export default function BoardPage() {
       status: 'APPROVED',
       completed_at: now,
       approved_at: now,
-      points_awarded: points
+      points_awarded: points,
+      household_id: activeHouseholdId
     })
 
     if (logError) {
-      setError(logError.message)
+      setFriendlyError(logError.message)
+      setActionLoading(false)
       return
     }
 
@@ -311,19 +366,24 @@ export default function BoardPage() {
         is_active: false
       })
       .eq('id', job.id)
+      .eq('household_id', activeHouseholdId)
 
     if (jobError) {
-      setError(jobError.message)
+      setFriendlyError(jobError.message)
+      setActionLoading(false)
       return
     }
 
     window.alert(`Great job! You earned ${points} points.`)
     setSelectedKidId(null)
-    await loadData()
+    await loadData(activeHouseholdId)
+    setActionLoading(false)
   }
 
   const handleUnclaimJob = async (job: Job) => {
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
 
     if (!ensureKidSelected() || !selectedKid) return
 
@@ -337,6 +397,7 @@ export default function BoardPage() {
     )
     if (!confirmed) return
 
+    setActionLoading(true)
     const { error } = await supabase
       .from('jobs')
       .update({
@@ -344,18 +405,23 @@ export default function BoardPage() {
         claimed_by_kid_id: null
       })
       .eq('id', job.id)
+      .eq('household_id', activeHouseholdId)
 
     if (error) {
-      setError(error.message)
+      setFriendlyError(error.message)
+      setActionLoading(false)
       return
     }
 
     setSelectedKidId(null)
-    await loadData()
+    await loadData(activeHouseholdId)
+    setActionLoading(false)
   }
 
   const handleRequestNewJob = async () => {
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
     if (!ensureKidSelected() || !selectedKid) return
 
     const confirmed = window.confirm(
@@ -363,19 +429,23 @@ export default function BoardPage() {
     )
     if (!confirmed) return
 
+    setActionLoading(true)
     const { error } = await supabase.from('job_requests').insert({
       kid_id: selectedKid.id,
       message: null,
-      handled: false
+      handled: false,
+      household_id: activeHouseholdId
     })
 
     if (error) {
-      setError(error.message)
+      setFriendlyError(error.message)
+      setActionLoading(false)
       return
     }
 
     window.alert('Request sent to parent.')
     setSelectedKidId(null)
+    setActionLoading(false)
   }
 
   const handleOpenRewardModal = () => {
@@ -385,6 +455,8 @@ export default function BoardPage() {
 
   const handleRequestReward = async (reward: Reward) => {
     setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
     if (!selectedKid) return
 
     const confirmed = window.confirm(
@@ -392,49 +464,59 @@ export default function BoardPage() {
     )
     if (!confirmed) return
 
+    setActionLoading(true)
     const { error } = await supabase.from('reward_requests').insert({
       kid_id: selectedKid.id,
       reward_id: reward.id,
       status: 'PENDING',
-      note: null
+      note: null,
+      household_id: activeHouseholdId
     })
 
     if (error) {
-      setError(error.message)
+      setFriendlyError(error.message)
+      setActionLoading(false)
       return
     }
 
     window.alert('Reward request sent to parent.')
     setRewardModalOpen(false)
     setSelectedKidId(null)
+    setActionLoading(false)
   }
 
   const activeJobs = jobs.filter(j => j.is_active)
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-slate-900 text-white">
-        Loading board...
+      <div className="flex items-center justify-center h-screen bg-ease-bg text-[#333333]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-ease-teal border-t-transparent" />
+          <span className="text-[#666666]">Loading board...</span>
+        </div>
       </div>
     )
   }
-
   return (
-    <div className="min-h-screen bg-slate-900 text-white flex flex-col">
-      {/* Header */}
-      <header className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+    <div className="min-h-screen bg-ease-bg text-[#333333] flex flex-col">
+      {/* Header - Ease-style clean */}
+      <header className="px-4 py-4 sm:px-6 border-b border-slate-200/80 bg-white flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Family Job Board</h1>
-          <p className="text-sm text-slate-300">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#333333]">Family Job Board</h1>
+          <div className="text-xs text-[#666666] mt-1">
+            Household: {householdName || 'Loading...'}{' '}
+            {householdCode ? `(code: ${householdCode})` : ''}
+          </div>
+          <p className="text-sm text-[#666666] mt-1 max-w-md">
             1) Tap your name. 2) Tap a job. 3) Do the job. 4) Mark it
             done.
           </p>
         </div>
         {selectedKid && (
-          <div className="text-right">
-            <div className="text-sm text-slate-300">You are</div>
-            <div className="text-xl font-semibold">{selectedKid.name}</div>
-            <div className="text-xs text-slate-400 mt-1">
+          <div className="text-right shrink-0 rounded-md bg-slate-50 border border-slate-200 px-4 py-2">
+            <div className="text-xs text-[#666666] uppercase tracking-wider">You are</div>
+            <div className="text-xl font-bold text-ease-teal">{selectedKid.name}</div>
+            <div className="text-xs text-[#666666] mt-1">
               Current: {selectedKid.points_balance} pts • Lifetime:{' '}
               {selectedKid.points_lifetime} pts
             </div>
@@ -443,19 +525,37 @@ export default function BoardPage() {
       </header>
 
       {error && (
-        <div className="px-4 py-2 bg-red-600 text-sm">{error}</div>
+        <div className="px-4 py-2.5 bg-red-50 border-b border-red-200 text-red-800 text-sm flex items-center justify-between gap-2">
+          <span>{error}</span>
+          {error.includes('Connection error') && (
+            <button
+              onClick={() => householdId && loadData(householdId)}
+              className="px-3 py-1.5 rounded-md bg-ease-teal text-white hover:bg-ease-teal-hover font-semibold text-sm"
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      )}
+
+      {actionLoading && (
+        <div className="px-4 py-2.5 bg-sky-50 border-b border-sky-200 text-ease-teal text-sm flex items-center gap-2">
+          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+          Processing...
+        </div>
       )}
 
       {/* Main layout */}
-      <main className="flex-1 grid gap-4 p-4 lg:grid-cols-[2fr,1fr]">
+      <main className="flex-1 grid gap-4 p-4 sm:p-6 lg:grid-cols-[2fr,1fr] max-w-7xl mx-auto w-full">
         {/* Left: Jobs */}
-        <section className="bg-slate-800 rounded-2xl p-4 flex flex-col">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">Jobs on the board</h2>
+        <section className="bg-white rounded-md p-4 sm:p-5 flex flex-col border border-slate-200/60 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-[#333333]">Jobs on the board</h2>
             {activeJobs.length === 0 && (
               <button
                 onClick={handleRequestNewJob}
-                className="text-xs px-3 py-2 rounded-full bg-amber-500 text-slate-900 font-semibold hover:bg-amber-400"
+                disabled={actionLoading}
+                className="text-xs px-3 py-2 rounded-md bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Request a new job
               </button>
@@ -463,7 +563,7 @@ export default function BoardPage() {
           </div>
 
           {activeJobs.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center text-slate-300 text-sm">
+            <div className="flex-1 flex items-center justify-center text-[#666666] text-sm">
               No jobs right now. Ask a parent to add more, or use the
               request button.
             </div>
@@ -489,13 +589,15 @@ export default function BoardPage() {
                     key={job.id}
                     role="button"
                     tabIndex={0}
-                    onClick={() => handleJobTap(job)}
-                    className={`flex flex-col items-stretch text-left rounded-2xl px-4 py-3 border-2 min-h-[90px] cursor-pointer ${
+                    onClick={() => !actionLoading && handleJobTap(job)}
+                    className={`flex flex-col items-stretch text-left rounded-md px-4 py-3 border min-h-[90px] transition-all duration-200 ${
+                      actionLoading ? 'cursor-wait opacity-75' : 'cursor-pointer'
+                    } ${
                       claimedByYou
-                        ? 'border-emerald-400 bg-emerald-900/40'
+                        ? 'border-ease-teal bg-teal-50/80'
                         : job.is_claimed
-                        ? 'border-slate-600 bg-slate-800'
-                        : 'border-sky-400 bg-sky-900/40'
+                        ? 'border-slate-200 bg-slate-50/50'
+                        : 'border-slate-200 bg-white hover:border-ease-teal/50 hover:bg-teal-50/30'
                     }`}
                   >
                     <div className="flex justify-between items-start gap-2">
@@ -504,7 +606,7 @@ export default function BoardPage() {
                           {job.name}
                         </div>
                         {job.description && (
-                          <div className="text-xs text-slate-200 mt-1 line-clamp-2">
+                          <div className="text-xs text-[#666666] mt-1 line-clamp-2">
                             {job.description}
                           </div>
                         )}
@@ -513,7 +615,7 @@ export default function BoardPage() {
                         <div className="text-xl font-bold">
                           {job.base_points}
                         </div>
-                        <div className="text-[11px] text-slate-200">
+                        <div className="text-[11px] text-[#666666]">
                           pts
                         </div>
                       </div>
@@ -525,12 +627,12 @@ export default function BoardPage() {
                           {statusLabel}
                         </span>
                         {job.min_age !== null && (
-                          <span className="text-[11px] text-slate-300">
+                          <span className="text-[11px] text-[#666666]">
                             Ages {job.min_age}+
                           </span>
                         )}
                         {job.requires_approval && (
-                          <span className="text-[11px] text-amber-300">
+                          <span className="text-[11px] text-amber-600">
                             Parent approval required for points
                           </span>
                         )}
@@ -540,21 +642,23 @@ export default function BoardPage() {
                         <div className="flex flex-col gap-1">
                           <button
                             type="button"
+                            disabled={actionLoading}
                             onClick={e => {
                               e.stopPropagation()
                               handleCompleteJob(job, selectedKid)
                             }}
-                            className="text-[11px] px-3 py-1 rounded-full bg-emerald-500 text-slate-900 font-semibold hover:bg-emerald-400"
+                            className="text-[11px] px-3 py-1.5 rounded-md bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Mark done
                           </button>
                           <button
                             type="button"
+                            disabled={actionLoading}
                             onClick={e => {
                               e.stopPropagation()
                               handleUnclaimJob(job)
                             }}
-                            className="text-[10px] px-3 py-1 rounded-full border border-slate-400 text-slate-100 hover:bg-slate-700"
+                            className="text-[10px] px-3 py-1 rounded-md border border-slate-300 text-[#666666] hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Unclaim
                           </button>
@@ -571,10 +675,10 @@ export default function BoardPage() {
         {/* Right: Kids + points + rewards */}
         <section className="space-y-4">
           {/* Kids selector */}
-          <div className="bg-slate-800 rounded-2xl p-4">
-            <h2 className="text-lg font-semibold mb-2">Who are you?</h2>
+          <div className="bg-white rounded-md p-4 sm:p-5 border border-slate-200/60 shadow-sm">
+            <h2 className="text-lg font-bold text-[#333333] mb-3">Who are you?</h2>
             {kids.length === 0 ? (
-              <div className="text-sm text-slate-300">
+              <div className="text-sm text-[#666666]">
                 No kids yet. A parent needs to add kids on the parent
                 page.
               </div>
@@ -586,15 +690,15 @@ export default function BoardPage() {
                     <button
                       key={kid.id}
                       onClick={() => handleSelectKid(kid.id)}
-                      className={`flex flex-col items-start rounded-2xl px-3 py-2 text-left border-2 ${
+                      className={`flex flex-col items-start rounded-md px-3 py-2.5 text-left border transition-all duration-200 ${
                         selected
-                          ? 'border-emerald-400 bg-emerald-900/40'
-                          : 'border-slate-600 bg-slate-900/40'
+                          ? 'border-ease-teal bg-teal-50/80'
+                          : 'border-slate-200 bg-slate-50/50 hover:border-ease-teal/50'
                       }`}
                     >
                       <div className="flex items-center gap-2">
                         <div
-                          className="h-6 w-6 rounded-full border border-slate-500"
+                          className="h-7 w-7 rounded-full border border-slate-200"
                           style={{
                             backgroundColor:
                               kid.color || 'rgba(148, 163, 184, 0.5)'
@@ -605,13 +709,13 @@ export default function BoardPage() {
                             {kid.name}
                           </div>
                           {kid.age !== null && (
-                            <div className="text-[11px] text-slate-300">
+                            <div className="text-[11px] text-[#666666]">
                               Age {kid.age}
                             </div>
                           )}
                         </div>
                       </div>
-                      <div className="mt-1 text-[11px] text-slate-300">
+                      <div className="mt-1 text-[11px] text-[#666666]">
                         Current: {kid.points_balance} pts • Lifetime:{' '}
                         {kid.points_lifetime} pts
                       </div>
@@ -623,36 +727,36 @@ export default function BoardPage() {
           </div>
 
           {/* Rewards / points actions */}
-          <div className="bg-slate-800 rounded-2xl p-4">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-semibold">Points & rewards</h2>
+          <div className="bg-white rounded-md p-4 sm:p-5 border border-slate-200/60 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-[#333333]">Points & rewards</h2>
             </div>
             {selectedKid ? (
               <>
-                <div className="text-sm text-slate-200 mb-3">
+                <div className="text-sm text-[#666666] mb-3">
                   {selectedKid.name} has{' '}
-                    <span className="font-semibold">
-                      {selectedKid.points_balance} points
-                    </span>{' '}
+                  <span className="font-semibold">
+                    {selectedKid.points_balance} points
+                  </span>{' '}
                   to spend.
                 </div>
 
                 {settings?.show_rewards_on_board ? (
                   <button
                     onClick={handleOpenRewardModal}
-                    className="w-full rounded-full bg-sky-500 text-slate-900 font-semibold px-4 py-2 text-sm hover:bg-sky-400"
+                    className="w-full rounded-md bg-ease-teal text-white font-semibold px-4 py-3 text-sm hover:bg-ease-teal-hover transition-colors"
                   >
                     Spend points (request a reward)
                   </button>
                 ) : (
-                  <div className="text-xs text-slate-400">
+                  <div className="text-xs text-[#666666]">
                     Rewards are hidden right now. A parent can turn them
                     on.
                   </div>
                 )}
               </>
             ) : (
-              <div className="text-sm text-slate-300">
+              <div className="text-sm text-[#666666]">
                 Tap your name first to see your points and rewards.
               </div>
             )}
@@ -662,22 +766,22 @@ export default function BoardPage() {
 
       {/* Reward modal */}
       {rewardModalOpen && selectedKid && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-4 w-full max-w-md">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-200 rounded-md p-5 w-full max-w-md shadow-lg">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold">
+              <h2 className="text-lg font-bold text-[#333333]">
                 Spend points – {selectedKid.name}
               </h2>
               <button
                 onClick={() => setRewardModalOpen(false)}
-                className="text-sm text-slate-300 hover:text-white"
+                className="text-sm text-[#666666] hover:text-[#333333]"
               >
                 Close
               </button>
             </div>
 
             {rewards.filter(r => r.is_active).length === 0 ? (
-              <div className="text-sm text-slate-300">
+              <div className="text-sm text-[#666666]">
                 No rewards available right now. Ask a parent to add some.
               </div>
             ) : (
@@ -687,24 +791,25 @@ export default function BoardPage() {
                   .map(reward => (
                     <div
                       key={reward.id}
-                      className="flex items-center justify-between bg-slate-800 rounded-xl px-3 py-2"
+                      className="flex items-center justify-between bg-slate-50 rounded-md px-4 py-3 border border-slate-200"
                     >
                       <div>
                         <div className="text-sm font-semibold">
                           {reward.name}
                         </div>
                         {reward.description && (
-                          <div className="text-xs text-slate-300">
+                          <div className="text-xs text-[#666666]">
                             {reward.description}
                           </div>
                         )}
-                        <div className="text-xs text-slate-400 mt-1">
+                        <div className="text-xs text-[#666666] mt-1">
                           Cost: {reward.cost_points} pts
                         </div>
                       </div>
                       <button
+                        disabled={actionLoading}
                         onClick={() => handleRequestReward(reward)}
-                        className="text-[11px] px-3 py-1 rounded-full bg-emerald-500 text-slate-900 font-semibold hover:bg-emerald-400"
+                        className="text-[11px] px-3 py-1.5 rounded-md bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Request
                       </button>
@@ -713,7 +818,7 @@ export default function BoardPage() {
               </div>
             )}
 
-            <div className="text-[11px] text-slate-400 mt-3">
+            <div className="text-[11px] text-[#666666] mt-3">
               Your parent has to approve your request. Points will only be
               spent if they say yes.
             </div>
