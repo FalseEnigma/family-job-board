@@ -20,6 +20,7 @@ import type {
 } from '../../lib/types'
 import { KID_AVATARS, KID_COLORS } from '../../lib/constants'
 import { getFriendlyErrorMessage } from '../../lib/utils'
+import { ConfirmModal, InfoModal } from '@/components/ModalDialogs'
 
 const PARENT_PIN =
   process.env.NEXT_PUBLIC_PARENT_PIN &&
@@ -118,6 +119,14 @@ function ParentPageContent() {
   // Tab navigation (must be before any early returns to satisfy Rules of Hooks)
   type TabId = 'dashboard' | 'inbox' | 'kids' | 'jobs' | 'rewards' | 'history' | 'settings'
   const [activeTab, setActiveTab] = useState<TabId>('dashboard')
+
+  const [infoModal, setInfoModal] = useState<string | null>(null)
+  const [confirmModal, setConfirmModal] = useState<{
+    message: string
+    confirmLabel?: string
+    cancelLabel?: string
+    onConfirm: () => void | Promise<void>
+  } | null>(null)
 
   const resetTemplateForm = () => {
     setNewTemplateName('')
@@ -650,7 +659,7 @@ function ParentPageContent() {
     if (!activeHouseholdId) return
 
     if (jobTemplates.length === 0) {
-      window.alert('No recurring job templates yet.')
+      setInfoModal('No recurring job templates yet.')
       return
     }
 
@@ -658,7 +667,7 @@ function ParentPageContent() {
     const activeTemplates = jobTemplates.filter(t => t.is_active)
 
     if (activeTemplates.length === 0) {
-      window.alert('No active recurring job templates.')
+      setInfoModal('No active recurring job templates.')
       return
     }
 
@@ -681,7 +690,7 @@ function ParentPageContent() {
     })
 
     if (dueTemplates.length === 0) {
-      window.alert('No recurring jobs are due right now.')
+      setInfoModal('No recurring jobs are due right now.')
       return
     }
 
@@ -934,57 +943,59 @@ function ParentPageContent() {
 
     const points = log.points_awarded ?? job.base_points
 
-    const confirmed = window.confirm(
-      `Unapprove "${job.name}" for ${kid.name}? This will remove ${points} pts and put the job back on the board.`
-    )
-    if (!confirmed) return
+    setConfirmModal({
+      message: `Unapprove "${job.name}" for ${kid.name}? This will remove ${points} pts and put the job back on the board.`,
+      confirmLabel: 'Yes, unapprove',
+      onConfirm: async () => {
+        setConfirmModal(null)
+        const newBalance = Math.max(0, kid.points_balance - points)
+        const newLifetime = Math.max(0, kid.points_lifetime - points)
 
-    const newBalance = Math.max(0, kid.points_balance - points)
-    const newLifetime = Math.max(0, kid.points_lifetime - points)
+        const { error: kidError } = await supabase
+          .from('kids')
+          .update({
+            points_balance: newBalance,
+            points_lifetime: newLifetime
+          })
+          .eq('id', kid.id)
+          .eq('household_id', activeHouseholdId)
 
-    const { error: kidError } = await supabase
-      .from('kids')
-      .update({
-        points_balance: newBalance,
-        points_lifetime: newLifetime
-      })
-      .eq('id', kid.id)
-      .eq('household_id', activeHouseholdId)
+        if (kidError) {
+          setError(kidError.message)
+          return
+        }
 
-    if (kidError) {
-      setError(kidError.message)
-      return
-    }
+        const { error: logError } = await supabase
+          .from('job_logs')
+          .update({
+            status: 'REJECTED'
+          })
+          .eq('id', log.id)
+          .eq('household_id', activeHouseholdId)
 
-    const { error: logError } = await supabase
-      .from('job_logs')
-      .update({
-        status: 'REJECTED'
-      })
-      .eq('id', log.id)
-      .eq('household_id', activeHouseholdId)
+        if (logError) {
+          setError(logError.message)
+          return
+        }
 
-    if (logError) {
-      setError(logError.message)
-      return
-    }
+        const { error: jobError } = await supabase
+          .from('jobs')
+          .update({
+            is_active: true,
+            is_claimed: false,
+            claimed_by_kid_id: null
+          })
+          .eq('id', job.id)
+          .eq('household_id', activeHouseholdId)
 
-    const { error: jobError } = await supabase
-      .from('jobs')
-      .update({
-        is_active: true,
-        is_claimed: false,
-        claimed_by_kid_id: null
-      })
-      .eq('id', job.id)
-      .eq('household_id', activeHouseholdId)
+        if (jobError) {
+          setError(jobError.message)
+          return
+        }
 
-    if (jobError) {
-      setError(jobError.message)
-      return
-    }
-
-    await loadData(activeHouseholdId)
+        await loadData(activeHouseholdId)
+      },
+    })
   }
 
   const handleSpendPoints = async () => {
@@ -1125,28 +1136,30 @@ function ParentPageContent() {
       ? kids.find(k => k.id === job.claimed_by_kid_id)
       : null
 
-    const confirmed = window.confirm(
-      `Unclaim "${job.name}"${
+    setConfirmModal({
+      message: `Unclaim "${job.name}"${
         kid ? ` from ${kid.name}` : ''
-      } and make it available again?`
-    )
-    if (!confirmed) return
+      } and make it available again?`,
+      confirmLabel: 'Yes, unclaim',
+      onConfirm: async () => {
+        setConfirmModal(null)
+        const { error } = await supabase
+          .from('jobs')
+          .update({
+            is_claimed: false,
+            claimed_by_kid_id: null
+          })
+          .eq('id', job.id)
+          .eq('household_id', activeHouseholdId)
 
-    const { error } = await supabase
-      .from('jobs')
-      .update({
-        is_claimed: false,
-        claimed_by_kid_id: null
-      })
-      .eq('id', job.id)
-      .eq('household_id', activeHouseholdId)
+        if (error) {
+          setError(error.message)
+          return
+        }
 
-    if (error) {
-      setError(error.message)
-      return
-    }
-
-    await loadData(activeHouseholdId)
+        await loadData(activeHouseholdId)
+      },
+    })
   }
 
   const handleDeactivateJob = async (job: Job) => {
@@ -1154,23 +1167,25 @@ function ParentPageContent() {
     const activeHouseholdId = requireHouseholdId()
     if (!activeHouseholdId) return
 
-    const confirmed = window.confirm(
-      `Remove "${job.name}" from the board? Kids won't see it anymore.`
-    )
-    if (!confirmed) return
+    setConfirmModal({
+      message: `Remove "${job.name}" from the board? Kids won't see it anymore.`,
+      confirmLabel: 'Yes, remove',
+      onConfirm: async () => {
+        setConfirmModal(null)
+        const { error } = await supabase
+          .from('jobs')
+          .update({ is_active: false })
+          .eq('id', job.id)
+          .eq('household_id', activeHouseholdId)
 
-    const { error } = await supabase
-      .from('jobs')
-      .update({ is_active: false })
-      .eq('id', job.id)
-      .eq('household_id', activeHouseholdId)
+        if (error) {
+          setError(error.message)
+          return
+        }
 
-    if (error) {
-      setError(error.message)
-      return
-    }
-
-    await loadData(activeHouseholdId)
+        await loadData(activeHouseholdId)
+      },
+    })
   }
 
   const isKidBlockedForJob = (jobId: string, kidId: string) =>
@@ -1330,58 +1345,59 @@ function ParentPageContent() {
       return
     }
 
-    const confirmed = window.confirm(
-      `Approve "${reward.name}" for ${kid.name} for ${reward.cost_points} points?`
-    )
-    if (!confirmed) return
+    setConfirmModal({
+      message: `Approve "${reward.name}" for ${kid.name} for ${reward.cost_points} points?`,
+      confirmLabel: 'Yes, approve',
+      onConfirm: async () => {
+        setConfirmModal(null)
+        const newBalance = kid.points_balance - reward.cost_points
 
-    const newBalance = kid.points_balance - reward.cost_points
+        const now = new Date().toISOString()
 
-    const now = new Date().toISOString()
+        const { error: kidError } = await supabase
+          .from('kids')
+          .update({
+            points_balance: newBalance
+          })
+          .eq('id', kid.id)
+          .eq('household_id', activeHouseholdId)
 
-    const { error: kidError } = await supabase
-      .from('kids')
-      .update({
-        points_balance: newBalance
-      })
-      .eq('id', kid.id)
-      .eq('household_id', activeHouseholdId)
+        if (kidError) {
+          setError(kidError.message)
+          return
+        }
 
-    if (kidError) {
-      setError(kidError.message)
-      return
-    }
+        const { error: reqError } = await supabase
+          .from('reward_requests')
+          .update({
+            status: 'APPROVED',
+            handled_at: now
+          })
+          .eq('id', req.id)
+          .eq('household_id', activeHouseholdId)
 
-    const { error: reqError } = await supabase
-      .from('reward_requests')
-      .update({
-        status: 'APPROVED',
-        handled_at: now
-      })
-      .eq('id', req.id)
-      .eq('household_id', activeHouseholdId)
+        if (reqError) {
+          setError(reqError.message)
+          return
+        }
 
-    if (reqError) {
-      setError(reqError.message)
-      return
-    }
+        const { error: txError } = await supabase
+          .from('point_transactions')
+          .insert({
+            kid_id: kid.id,
+            household_id: activeHouseholdId,
+            type: 'SPEND',
+            amount: reward.cost_points,
+            description: `Redeemed for "${reward.name}"`
+          })
 
-    const { error: txError } = await supabase
-      .from('point_transactions')
-      .insert({
-        kid_id: kid.id,
-        household_id: activeHouseholdId,
-        type: 'SPEND',
-        amount: reward.cost_points,
-        description: `Redeemed for "${reward.name}"`
-      })
+        if (txError) {
+          setError(txError.message)
+        }
 
-    if (txError) {
-      setError(txError.message)
-      // main flow still succeeded
-    }
-
-    await loadData(activeHouseholdId)
+        await loadData(activeHouseholdId)
+      },
+    })
   }
 
   const handleRejectRewardRequest = async (req: RewardRequest) => {
@@ -2742,6 +2758,19 @@ function ParentPageContent() {
       )}
 
       </main>
+
+      {infoModal && (
+        <InfoModal message={infoModal} onDismiss={() => setInfoModal(null)} />
+      )}
+      {confirmModal && (
+        <ConfirmModal
+          message={confirmModal.message}
+          confirmLabel={confirmModal.confirmLabel}
+          cancelLabel={confirmModal.cancelLabel}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+        />
+      )}
     </div>
   )
 }

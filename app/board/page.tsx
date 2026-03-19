@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabaseClient'
 import type { Kid, Job, Reward, AppSettings, JobBlockedKid, Household } from '../../lib/types'
 import { getFriendlyErrorMessage } from '../../lib/utils'
 import { KID_AVATARS, KID_COLORS } from '../../lib/constants'
+import { ConfirmModal, InfoModal } from '@/components/ModalDialogs'
 
 const ENCOURAGING_MESSAGES = [
   'Nice work!',
@@ -49,62 +50,6 @@ function ConfettiOverlay() {
   )
 }
 
-function ConfirmModal({
-  message,
-  confirmLabel = 'Yes',
-  cancelLabel = 'Cancel',
-  onConfirm,
-  onCancel,
-  loading = false,
-}: {
-  message: string
-  confirmLabel?: string
-  cancelLabel?: string
-  onConfirm: () => void | Promise<void>
-  onCancel: () => void
-  loading?: boolean
-}) {
-  const handleConfirm = async () => {
-    await onConfirm()
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30"
-      onClick={onCancel}
-      role="button"
-      tabIndex={0}
-      onKeyDown={e => e.key === 'Escape' && onCancel()}
-      aria-label="Dismiss"
-    >
-      <div
-        className="bg-white rounded-xl shadow-xl border-2 border-slate-200/80 p-6 max-w-sm w-full animate-[bounce-in_0.3s_ease-out]"
-        onClick={e => e.stopPropagation()}
-      >
-        <p className="text-[#333333] text-base mb-6">{message}</p>
-        <div className="flex gap-3 justify-end">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={loading}
-            className="min-h-[44px] px-4 py-2 rounded-xl border-2 border-slate-200 text-[#333333] font-medium hover:bg-slate-50 active:scale-[0.98] transition-transform disabled:opacity-50"
-          >
-            {cancelLabel}
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={loading}
-            className="min-h-[44px] px-4 py-2 rounded-xl bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover active:scale-[0.98] transition-transform disabled:opacity-50"
-          >
-            {loading ? '...' : confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function BoardLoadingFallback() {
   return (
     <div className="flex items-center justify-center h-screen bg-ease-bg text-[#333333]">
@@ -138,6 +83,7 @@ function BoardPageContent() {
     cancelLabel?: string
     onConfirm: () => void | Promise<void>
   } | null>(null)
+  const [infoModal, setInfoModal] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [celebration, setCelebration] = useState<{
     message: string
@@ -308,7 +254,7 @@ function BoardPageContent() {
 
   const ensureKidSelected = () => {
     if (!selectedKid) {
-      window.alert('Tap your name first to choose who you are.')
+      setInfoModal('Tap your name first to choose who you are.')
       return false
     }
     return true
@@ -323,7 +269,7 @@ function BoardPageContent() {
     // if job is already claimed
     if (job.is_claimed) {
       if (job.claimed_by_kid_id !== selectedKid.id) {
-        window.alert('This job is already claimed by someone else.')
+        setInfoModal('This job is already claimed by someone else.')
         return
       }
 
@@ -342,7 +288,7 @@ function BoardPageContent() {
 
     // check block list
     if (isKidBlockedForJob(job.id, kid.id)) {
-      window.alert('You are not allowed to do this job.')
+      setInfoModal('You are not allowed to do this job.')
       return
     }
 
@@ -352,7 +298,7 @@ function BoardPageContent() {
       kid.age != null &&
       kid.age < job.min_age
     ) {
-      window.alert(`You must be at least ${job.min_age} to do this job.`)
+      setInfoModal(`You must be at least ${job.min_age} to do this job.`)
       return
     }
 
@@ -531,7 +477,7 @@ function BoardPageContent() {
     if (!ensureKidSelected() || !selectedKid) return
 
     if (!job.is_claimed || job.claimed_by_kid_id !== selectedKid.id) {
-      window.alert('You can only unclaim a job that you claimed.')
+      setInfoModal('You can only unclaim a job that you claimed.')
       return
     }
 
@@ -1119,6 +1065,10 @@ function BoardPageContent() {
           onConfirm={confirmModal.onConfirm}
           onCancel={() => setConfirmModal(null)}
         />
+      )}
+
+      {infoModal && (
+        <InfoModal message={infoModal} onDismiss={() => setInfoModal(null)} />
       )}
 
       {/* Avatar picker modal */}
