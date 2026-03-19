@@ -334,6 +334,58 @@ function ParentPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [householdId])
 
+  // Real-time updates: subscribe to new job requests, reward requests, pending approvals
+  useEffect(() => {
+    if (!householdId || !unlocked) return
+
+    const channel = supabase
+      .channel(`parent-${householdId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'job_requests',
+          filter: `household_id=eq.${householdId}`,
+        },
+        () => loadData(householdId)
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'reward_requests',
+          filter: `household_id=eq.${householdId}`,
+        },
+        () => loadData(householdId)
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'job_logs',
+          filter: `household_id=eq.${householdId}`,
+        },
+        () => loadData(householdId)
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [householdId, unlocked])
+
+  // Polling fallback: refresh every 60s in case Realtime isn't enabled
+  useEffect(() => {
+    if (!householdId || !unlocked) return
+    const interval = setInterval(() => loadData(householdId), 60_000)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [householdId, unlocked])
+
   // Check if parent was recently unlocked (within 5 minutes)
   useEffect(() => {
     if (!householdId) return
