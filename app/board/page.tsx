@@ -7,6 +7,47 @@ import { supabase } from '../../lib/supabaseClient'
 import type { Kid, Job, Reward, AppSettings, JobBlockedKid, Household } from '../../lib/types'
 import { getFriendlyErrorMessage } from '../../lib/utils'
 
+const ENCOURAGING_MESSAGES = [
+  'Nice work!',
+  "You're on a roll!",
+  'Great job!',
+  'Awesome!',
+  'You did it!',
+  'Way to go!',
+  'Super star!',
+]
+
+function ConfettiOverlay() {
+  const colors = ['#00a3a3', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4']
+  const pieces = Array.from({ length: 24 }, (_, i) => ({
+    id: i,
+    left: `${5 + (i * 4) % 90}%`,
+    delay: `${(i * 0.08) % 2}s`,
+    color: colors[i % colors.length],
+    size: 8 + (i % 4) * 2,
+  }))
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-[60] overflow-hidden">
+      {pieces.map(p => (
+        <div
+          key={p.id}
+          className="absolute rounded-sm"
+          style={{
+            left: p.left,
+            top: '-20px',
+            width: p.size,
+            height: p.size,
+            backgroundColor: p.color,
+            animation: 'confetti-fall 2s ease-out forwards',
+            animationDelay: p.delay,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 function BoardLoadingFallback() {
   return (
     <div className="flex items-center justify-center h-screen bg-ease-bg text-[#333333]">
@@ -33,6 +74,12 @@ function BoardPageContent() {
   const [selectedKidId, setSelectedKidId] = useState<string | null>(null)
   const [rewardModalOpen, setRewardModalOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const [celebration, setCelebration] = useState<{
+    message: string
+    points?: number
+    showConfetti?: boolean
+  } | null>(null)
+  const [recentlyEarnedPoints, setRecentlyEarnedPoints] = useState(false)
 
   const searchParams = useSearchParams()
   const householdParam = searchParams.get('household')
@@ -313,9 +360,12 @@ function BoardPageContent() {
         return
       }
 
-      window.alert(
-        'Nice work! A parent needs to approve this job before you get the points.'
-      )
+      const msg =
+        ENCOURAGING_MESSAGES[Math.floor(Math.random() * ENCOURAGING_MESSAGES.length)]
+      setCelebration({
+        message: `${msg} A parent needs to approve this job before you get the points.`,
+        showConfetti: false,
+      })
       setSelectedKidId(null)
       await loadData(activeHouseholdId)
       setActionLoading(false)
@@ -387,7 +437,15 @@ function BoardPageContent() {
       return
     }
 
-    window.alert(`Great job! You earned ${points} points.`)
+    const msg =
+      ENCOURAGING_MESSAGES[Math.floor(Math.random() * ENCOURAGING_MESSAGES.length)]
+    setCelebration({
+      message: `${msg} You earned ${points} points.`,
+      points,
+      showConfetti: true,
+    })
+    setRecentlyEarnedPoints(true)
+    setTimeout(() => setRecentlyEarnedPoints(false), 4000)
     setSelectedKidId(null)
     await loadData(activeHouseholdId)
     setActionLoading(false)
@@ -536,8 +594,18 @@ function BoardPageContent() {
     <div className="min-h-screen bg-ease-bg text-[#333333] flex flex-col">
       {/* Header - Ease-style clean */}
       <header className="px-4 py-4 sm:px-6 border-b border-slate-200/80 bg-white flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#333333]">Family Job Board</h1>
+        <div className="flex items-center gap-3">
+          <span
+            className="text-3xl sm:text-4xl transition-transform duration-300"
+            style={{
+              animation: recentlyEarnedPoints ? 'celebrate-pulse 0.6s ease-in-out 3' : undefined,
+            }}
+            aria-hidden
+          >
+            {activeJobs.length === 0 ? '😴' : recentlyEarnedPoints ? '🎉' : '😊'}
+          </span>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#333333]">Family Job Board</h1>
           <div className="text-xs text-[#666666] mt-1">
             Household: {householdName || 'Loading...'}{' '}
             {householdCode ? `(code: ${householdCode})` : ''}
@@ -546,6 +614,7 @@ function BoardPageContent() {
             1) Tap your name. 2) Tap a job. 3) Do the job. 4) Mark it
             done.
           </p>
+          </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {selectedKid && (
@@ -560,7 +629,7 @@ function BoardPageContent() {
           )}
           <Link
             href={householdCode ? `/parent?board=${encodeURIComponent(householdCode)}` : householdId ? `/parent?household=${householdId}` : '/parent'}
-            className="rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-[#333333] hover:bg-slate-50 hover:border-ease-teal/50 whitespace-nowrap"
+            className="min-h-[44px] flex items-center rounded-xl border-2 border-slate-200 px-4 py-3 text-sm font-medium text-[#333333] hover:bg-slate-50 hover:border-ease-teal/50 active:scale-[0.98] transition-transform whitespace-nowrap"
           >
             Parent view
           </Link>
@@ -598,7 +667,7 @@ function BoardPageContent() {
               <button
                 onClick={handleRequestNewJob}
                 disabled={actionLoading}
-                className="text-xs px-3 py-2 rounded-md bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover disabled:opacity-50 disabled:cursor-not-allowed"
+                className="min-h-[44px] px-5 py-3 rounded-xl bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
               >
                 Request a new job
               </button>
@@ -633,7 +702,7 @@ function BoardPageContent() {
                     role="button"
                     tabIndex={0}
                     onClick={() => !actionLoading && handleJobTap(job)}
-                    className={`flex flex-col items-stretch text-left rounded-md px-4 py-3 border min-h-[90px] transition-all duration-200 ${
+                    className={`flex flex-col items-stretch text-left rounded-xl px-5 py-4 border-2 min-h-[100px] transition-all duration-200 active:scale-[0.98] ${
                       actionLoading ? 'cursor-wait opacity-75' : 'cursor-pointer'
                     } ${
                       claimedByYou
@@ -690,7 +759,7 @@ function BoardPageContent() {
                               e.stopPropagation()
                               handleCompleteJob(job, selectedKid)
                             }}
-                            className="text-[11px] px-3 py-1.5 rounded-md bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="min-h-[40px] text-sm px-4 py-2 rounded-lg bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover active:scale-[0.96] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
                           >
                             Mark done
                           </button>
@@ -701,7 +770,7 @@ function BoardPageContent() {
                               e.stopPropagation()
                               handleUnclaimJob(job)
                             }}
-                            className="text-[10px] px-3 py-1 rounded-md border border-slate-300 text-[#666666] hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="min-h-[36px] text-xs px-3 py-2 rounded-lg border-2 border-slate-300 text-[#666666] hover:bg-slate-100 active:scale-[0.96] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
                           >
                             Unclaim
                           </button>
@@ -720,6 +789,15 @@ function BoardPageContent() {
           {/* Kids selector */}
           <div className="bg-white rounded-md p-4 sm:p-5 border border-slate-200/60 shadow-sm">
             <h2 className="text-lg font-bold text-[#333333] mb-3">Who are you?</h2>
+            {selectedKid && (
+              <p className="text-base text-ease-teal font-semibold mb-3">
+                {[
+                  `Hey ${selectedKid.name}!`,
+                  `Ready to earn points, ${selectedKid.name}?`,
+                  `Let's go, ${selectedKid.name}!`,
+                ][selectedKid.id.charCodeAt(0) % 3]}
+              </p>
+            )}
             {kids.length === 0 ? (
               <div className="text-sm text-[#666666]">
                 No kids yet. A parent needs to add kids on the parent
@@ -729,38 +807,47 @@ function BoardPageContent() {
               <div className="grid gap-3 md:grid-cols-2">
                 {kids.map(kid => {
                   const selected = selectedKidId === kid.id
+                  const rawColor = kid.color || '#94a3b8'
+                  const kidColor = rawColor.startsWith('#') ? rawColor : '#94a3b8'
                   return (
                     <button
                       key={kid.id}
                       onClick={() => handleSelectKid(kid.id)}
-                      className={`flex flex-col items-start rounded-md px-3 py-2.5 text-left border transition-all duration-200 ${
-                        selected
-                          ? 'border-ease-teal bg-teal-50/80'
-                          : 'border-slate-200 bg-slate-50/50 hover:border-ease-teal/50'
+                      className={`flex flex-col items-start rounded-xl px-4 py-4 min-h-[72px] text-left border-2 transition-all duration-200 active:scale-[0.98] ${
+                        selected ? 'shadow-md' : 'hover:border-opacity-80'
                       }`}
+                      style={{
+                        backgroundColor: selected ? `${kidColor}28` : `${kidColor}12`,
+                        borderColor: selected ? kidColor : `${kidColor}55`,
+                      }}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         <div
-                          className="h-7 w-7 rounded-full border border-slate-200"
+                          className="h-10 w-10 rounded-full border-2 flex items-center justify-center text-lg"
                           style={{
-                            backgroundColor:
-                              kid.color || 'rgba(148, 163, 184, 0.5)'
+                            backgroundColor: kidColor,
+                            borderColor: kidColor,
+                            color: '#fff',
+                            textShadow: '0 1px 1px rgba(0,0,0,0.2)',
                           }}
-                        />
+                        >
+                          {kid.name.charAt(0).toUpperCase()}
+                        </div>
                         <div>
-                          <div className="text-base font-semibold">
-                            {kid.name}
-                          </div>
+                          <div className="text-base font-bold">{kid.name}</div>
                           {kid.age !== null && (
-                            <div className="text-[11px] text-[#666666]">
-                              Age {kid.age}
-                            </div>
+                            <div className="text-xs opacity-80">Age {kid.age}</div>
                           )}
                         </div>
+                        <span
+                          className="ml-auto text-xs font-semibold px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: `${kidColor}44`, color: kidColor }}
+                        >
+                          {kid.points_balance} pts
+                        </span>
                       </div>
-                      <div className="mt-1 text-[11px] text-[#666666]">
-                        Current: {kid.points_balance} pts • Lifetime:{' '}
-                        {kid.points_lifetime} pts
+                      <div className="mt-1 text-xs opacity-75">
+                        Lifetime: {kid.points_lifetime} pts
                       </div>
                     </button>
                   )
@@ -787,7 +874,7 @@ function BoardPageContent() {
                 {settings?.show_rewards_on_board ? (
                   <button
                     onClick={handleOpenRewardModal}
-                    className="w-full rounded-md bg-ease-teal text-white font-semibold px-4 py-3 text-sm hover:bg-ease-teal-hover transition-colors"
+                    className="w-full min-h-[48px] rounded-xl bg-ease-teal text-white font-semibold px-5 py-4 text-base hover:bg-ease-teal-hover active:scale-[0.98] transition-transform"
                   >
                     Spend points (request a reward)
                   </button>
@@ -806,6 +893,38 @@ function BoardPageContent() {
           </div>
         </section>
       </main>
+
+      {/* Celebration overlay */}
+      {celebration && (
+        <>
+          {celebration.showConfetti && <ConfettiOverlay />}
+          <div
+            className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/30"
+            onClick={() => setCelebration(null)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={e => e.key === 'Enter' && setCelebration(null)}
+            aria-label="Dismiss"
+          >
+            <div
+              className="bg-white rounded-xl shadow-xl p-6 max-w-sm text-center border-2 border-ease-teal/30 animate-[bounce-in_0.4s_ease-out]"
+              onClick={e => e.stopPropagation()}
+            >
+              <span className="text-4xl block mb-2">🎉</span>
+              <p className="text-lg font-semibold text-[#333333]">{celebration.message}</p>
+              {celebration.points != null && (
+                <p className="text-2xl font-bold text-ease-teal mt-2">+{celebration.points} pts</p>
+              )}
+              <button
+                onClick={() => setCelebration(null)}
+                className="mt-4 w-full min-h-[44px] rounded-lg bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover active:scale-[0.98] transition-transform"
+              >
+                Awesome!
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Reward modal */}
       {rewardModalOpen && selectedKid && (
@@ -852,7 +971,7 @@ function BoardPageContent() {
                       <button
                         disabled={actionLoading}
                         onClick={() => handleRequestReward(reward)}
-                        className="text-[11px] px-3 py-1.5 rounded-md bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="min-h-[40px] text-sm px-4 py-2 rounded-lg bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover active:scale-[0.96] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
                       >
                         Request
                       </button>
