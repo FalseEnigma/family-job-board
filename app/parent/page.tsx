@@ -334,6 +334,22 @@ function ParentPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [householdId])
 
+  // Check if parent was recently unlocked (within 5 minutes)
+  useEffect(() => {
+    if (!householdId) return
+    try {
+      const stored = sessionStorage.getItem(`parent_unlock_${householdId}`)
+      if (stored) {
+        const ts = parseInt(stored, 10)
+        if (!isNaN(ts) && Date.now() - ts < 5 * 60 * 1000) {
+          setUnlocked(true)
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [householdId])
+
   const requireHouseholdId = () => {
     if (!householdId) {
       setError('Household not ready yet.')
@@ -350,6 +366,16 @@ function ParentPageContent() {
     if (pinInput.trim() === expectedPin) {
       setUnlocked(true)
       setPinInput('')
+      if (householdId) {
+        try {
+          sessionStorage.setItem(
+            `parent_unlock_${householdId}`,
+            Date.now().toString()
+          )
+        } catch {
+          /* ignore */
+        }
+      }
       return
     }
     setPinError('Incorrect PIN.')

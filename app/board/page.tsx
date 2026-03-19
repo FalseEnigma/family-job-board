@@ -779,15 +779,13 @@ function BoardPageContent() {
         <section className="bg-white rounded-md p-4 sm:p-5 flex flex-col border border-slate-200/60 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-[#333333]">Jobs on the board</h2>
-            {activeJobs.length === 0 && (
-              <button
-                onClick={handleRequestNewJob}
-                disabled={actionLoading}
-                className="min-h-[44px] px-5 py-3 rounded-xl bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
-              >
-                Request a new job
-              </button>
-            )}
+            <button
+              onClick={handleRequestNewJob}
+              disabled={actionLoading}
+              className="min-h-[44px] px-5 py-3 rounded-xl bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+            >
+              Request a new job
+            </button>
           </div>
 
           {activeJobs.length === 0 ? (
