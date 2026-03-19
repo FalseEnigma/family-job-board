@@ -18,7 +18,7 @@ import type {
   PointTransaction,
   RewardRequest,
 } from '../../lib/types'
-import { DEFAULT_HOUSEHOLD_ID, KID_AVATARS, KID_COLORS } from '../../lib/constants'
+import { KID_AVATARS, KID_COLORS } from '../../lib/constants'
 import { getFriendlyErrorMessage } from '../../lib/utils'
 
 const PARENT_PIN =
@@ -169,9 +169,10 @@ function ParentPageContent() {
       return
     }
 
-    setHouseholdId(DEFAULT_HOUSEHOLD_ID)
-    setHouseholdName('Default Family')
+    setHouseholdId(null)
+    setHouseholdName(null)
     setHouseholdCode(null)
+    setLoading(false)
   }
 
   const loadData = async (activeHouseholdId: string) => {
@@ -1356,6 +1357,26 @@ function ParentPageContent() {
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-ease-teal border-t-transparent" />
           <span className="text-[#666666]">Loading...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (!householdId) {
+    return (
+      <div className="min-h-screen bg-ease-bg flex items-center justify-center p-4 text-[#333333]">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200/60 p-6 w-full max-w-md text-center">
+          <h1 className="text-xl font-bold mb-2">Board code required</h1>
+          <p className="text-sm text-[#666666] mb-4">
+            The parent dashboard needs your family&apos;s board code. Open the
+            home page, enter your code, then choose Parent Dashboard.
+          </p>
+          <Link
+            href="/"
+            className="inline-block rounded-lg bg-ease-teal px-4 py-2.5 font-semibold text-white hover:bg-ease-teal-hover"
+          >
+            Go to home page
+          </Link>
         </div>
       </div>
     )

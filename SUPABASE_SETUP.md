@@ -59,7 +59,7 @@ To use board codes (so different families can have separate boards):
 1. In Supabase **Table Editor** → `households`, add a new row with a unique `board_code` (e.g. `SMITH2024`).
 2. Share the URL: `https://yoursite.com?board=SMITH2024` (or use the form on the home page).
 
-The default household (`Default Family`) works without a code.
+**Board code is required** for both Kid Board and Parent Dashboard. There is no default household in the app anymore.
 
 ### Optional: Per-household parent PIN
 
