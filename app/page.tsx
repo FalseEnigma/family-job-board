@@ -71,7 +71,7 @@ export default function Home() {
               <ScoreChoreLogo variant="hero" />
             </span>
           </h1>
-          <p className="mt-1 text-lg text-[#666666] max-w-2xl mx-auto sm:mx-0">
+          <p className="mt-2 text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto sm:mx-0 leading-relaxed">
             Claim chores, earn points, and pick rewards — all in one place for
             your family.
           </p>

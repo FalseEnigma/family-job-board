@@ -701,7 +701,7 @@ function BoardPageContent() {
   return (
     <div className="min-h-screen bg-ease-bg text-[#333333] flex flex-col">
       {/* Header - Ease-style clean */}
-      <header className="px-4 py-4 sm:px-6 border-b border-slate-200/80 bg-white flex items-center justify-between gap-4">
+      <header className="px-4 py-5 sm:px-6 border-b border-slate-200/80 bg-white flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 flex-wrap gap-y-2">
           <span
             className="text-3xl sm:text-4xl transition-transform duration-300"
@@ -719,13 +719,13 @@ function BoardPageContent() {
                 <ScoreChoreLogo variant="header" />
               </span>
             </h1>
-          <div className="text-xs text-[#666666] mt-1">
+          <div className="text-sm text-slate-600 mt-1.5 font-medium">
             Household: {householdName || 'Loading...'}{' '}
             {householdCode ? `(code: ${householdCode})` : ''}
           </div>
-          <p className="text-sm text-[#666666] mt-1 max-w-md">
-            1) Tap your name. 2) Tap a job. 3) Do the job. 4) Mark it
-            done.
+          <p className="text-base text-slate-600 mt-2 max-w-lg leading-snug">
+            <span className="font-semibold text-slate-700">How it works:</span>{' '}
+            1) Tap your name → 2) Tap a job → 3) Do it → 4) Mark it done.
           </p>
           </div>
         </div>
@@ -809,9 +809,18 @@ function BoardPageContent() {
           </div>
 
           {activeJobs.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center text-[#666666] text-sm">
-              No jobs right now. Ask a parent to add more, or use the
-              request button.
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/80 px-6 py-10 text-center">
+              <span className="text-4xl" aria-hidden>
+                📭
+              </span>
+              <p className="text-base font-semibold text-slate-700 max-w-sm">
+                No jobs on the board yet
+              </p>
+              <p className="text-sm text-slate-600 max-w-sm leading-relaxed">
+                Ask a parent to post chores, or tap{' '}
+                <strong className="text-slate-700">Request a new job</strong> to
+                suggest one you&apos;d like to do.
+              </p>
             </div>
           ) : (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -950,10 +959,15 @@ function BoardPageContent() {
               </div>
             ) : (
               <div className="grid gap-3 md:grid-cols-2">
-                {kids.map(kid => {
+                {kids.map((kid, kidIndex) => {
                   const selected = selectedKidId === kid.id
                   const rawColor = kid.color || '#94a3b8'
                   const kidColor = rawColor.startsWith('#') ? rawColor : '#94a3b8'
+                  const lastOddCentered =
+                    kids.length > 1 &&
+                    kids.length % 2 === 1 &&
+                    kidIndex === kids.length - 1
+                  const singleKidCentered = kids.length === 1
                   return (
                     <div
                       key={kid.id}
@@ -963,6 +977,10 @@ function BoardPageContent() {
                       onKeyDown={e => e.key === 'Enter' && handleSelectKid(kid.id)}
                       className={`flex flex-col items-start rounded-xl px-4 py-4 min-h-[72px] text-left border-2 transition-all duration-200 active:scale-[0.98] cursor-pointer ${
                         selected ? 'shadow-md' : 'hover:border-opacity-80'
+                      } ${
+                        lastOddCentered || singleKidCentered
+                          ? 'md:col-span-2 md:max-w-md md:mx-auto md:w-full'
+                          : ''
                       }`}
                       style={{
                         backgroundColor: selected ? `${kidColor}28` : `${kidColor}12`,
@@ -1056,8 +1074,17 @@ function BoardPageContent() {
                 )}
               </>
             ) : (
-              <div className="text-sm text-[#666666]">
-                Tap your name first to see your points and rewards.
+              <div className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/80 px-5 py-8 text-center">
+                <span className="text-3xl block mb-2" aria-hidden>
+                  👆
+                </span>
+                <p className="text-base font-semibold text-slate-700">
+                  Pick who you are first
+                </p>
+                <p className="text-sm text-slate-600 mt-2 max-w-xs mx-auto leading-relaxed">
+                  Tap your card in <strong className="text-slate-700">Who are you?</strong>{' '}
+                  above — then your points and reward button will show up here.
+                </p>
               </div>
             )}
           </div>

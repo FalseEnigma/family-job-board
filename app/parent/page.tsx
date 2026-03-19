@@ -1529,7 +1529,7 @@ function ParentPageContent() {
     <div className="min-h-screen bg-ease-bg text-[#333333]">
       {/* Header - Ease-style clean nav */}
       <header className="sticky top-0 z-10 bg-white border-b border-slate-200/80 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-start gap-4 sm:gap-5 min-w-0">
               <div
@@ -1545,7 +1545,7 @@ function ParentPageContent() {
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#333333]">
                   Parent Dashboard
                 </h1>
-                <div className="text-xs text-[#666666] mt-1">
+                <div className="text-sm text-slate-600 mt-1 font-medium">
                   {householdName || 'Loading...'}
                   {householdCode && ` • Code: ${householdCode}`}
                 </div>
