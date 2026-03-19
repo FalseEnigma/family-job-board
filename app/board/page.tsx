@@ -631,6 +631,7 @@ function BoardPageContent() {
     if (!activeHouseholdId) return
     if (!selectedKid) return
 
+    setRewardModalOpen(false)
     setConfirmModal({
       message: `${selectedKid.name}, do you want to request "${reward.name}" for ${reward.cost_points} points? Your parent will decide if it is approved.`,
       confirmLabel: 'Yes, request it',
