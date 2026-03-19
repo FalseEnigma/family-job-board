@@ -1529,11 +1529,12 @@ function ParentPageContent() {
     <div className="min-h-screen bg-ease-bg text-[#333333]">
       {/* Header - Ease-style clean nav */}
       <header className="sticky top-0 z-10 bg-white border-b border-slate-200/80 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-5">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-start gap-4 sm:gap-5 min-w-0">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          {/* Logo + tabs + Kid view — single vertical center line */}
+          <div className="flex flex-col gap-3 py-3 sm:py-3.5">
+            <div className="flex items-center justify-between gap-3 sm:gap-4 min-h-[44px]">
               <div
-                className="shrink-0 pt-0.5 drop-shadow-[0_1px_1px_rgba(0,0,0,0.05)]"
+                className="shrink-0 flex items-center drop-shadow-[0_1px_1px_rgba(0,0,0,0.05)]"
                 role="img"
                 aria-label="ScoreChore"
               >
@@ -1541,23 +1542,24 @@ function ParentPageContent() {
                   <ScoreChoreLogo variant="nav" />
                 </span>
               </div>
-              <div className="min-w-0 border-l border-slate-200/90 pl-4 sm:pl-5">
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#333333]">
-                  Parent Dashboard
-                </h1>
-                <div className="text-sm text-slate-600 mt-1 font-medium">
-                  {householdName || 'Loading...'}
-                  {householdCode && ` • Code: ${householdCode}`}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <nav className="flex gap-1 overflow-x-auto pb-1 sm:pb-0">
+              <Link
+                href={
+                  householdCode
+                    ? `/board?board=${encodeURIComponent(householdCode)}`
+                    : householdId
+                      ? `/board?household=${householdId}`
+                      : '/'
+                }
+                className="sm:hidden shrink-0 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-[#333333] hover:bg-slate-50 hover:border-ease-teal/50 whitespace-nowrap"
+              >
+                Kid view
+              </Link>
+              <nav className="hidden sm:flex flex-1 items-center justify-center gap-1 min-w-0 overflow-x-auto px-2">
                 {tabs.map(({ id, label, count }) => (
                   <button
                     key={id}
                     onClick={() => setActiveTab(id)}
-                    className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all duration-200 border-b-2 ${
+                    className={`px-3 sm:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all duration-200 border-b-2 ${
                       activeTab === id
                         ? 'text-ease-teal border-ease-teal'
                         : 'text-[#666666] border-transparent hover:text-[#333333]'
@@ -1573,11 +1575,47 @@ function ParentPageContent() {
                 ))}
               </nav>
               <Link
-                href={householdCode ? `/board?board=${encodeURIComponent(householdCode)}` : householdId ? `/board?household=${householdId}` : '/'}
-                className="shrink-0 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-[#333333] hover:bg-slate-50 hover:border-ease-teal/50 whitespace-nowrap"
+                href={
+                  householdCode
+                    ? `/board?board=${encodeURIComponent(householdCode)}`
+                    : householdId
+                      ? `/board?household=${householdId}`
+                      : '/'
+                }
+                className="hidden sm:inline-flex shrink-0 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-[#333333] hover:bg-slate-50 hover:border-ease-teal/50 whitespace-nowrap items-center self-center"
               >
                 Kid view
               </Link>
+            </div>
+            <nav className="flex sm:hidden items-center gap-1 overflow-x-auto pb-1 -mx-1 px-1 border-t border-slate-100 pt-3">
+              {tabs.map(({ id, label, count }) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveTab(id)}
+                  className={`px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all duration-200 border-b-2 ${
+                    activeTab === id
+                      ? 'text-ease-teal border-ease-teal'
+                      : 'text-[#666666] border-transparent hover:text-[#333333]'
+                  }`}
+                >
+                  {label}
+                  {count !== undefined && count > 0 && (
+                    <span className="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded bg-sky-100 text-ease-teal text-xs font-semibold">
+                      {count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </nav>
+          </div>
+          {/* Page context — below toolbar so logo row stays aligned with tabs */}
+          <div className="border-t border-slate-100 bg-slate-50/70 px-0 py-3 sm:py-3.5">
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-[#333333]">
+              Parent Dashboard
+            </h1>
+            <div className="text-sm text-slate-600 mt-0.5 font-medium">
+              {householdName || 'Loading...'}
+              {householdCode && ` • Code: ${householdCode}`}
             </div>
           </div>
         </div>
