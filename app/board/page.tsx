@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
 import type { Kid, Job, Reward, AppSettings, JobBlockedKid, Household } from '../../lib/types'
 import { getFriendlyErrorMessage } from '../../lib/utils'
-import { KID_AVATARS } from '../../lib/constants'
+import { KID_AVATARS, KID_COLORS } from '../../lib/constants'
 
 const ENCOURAGING_MESSAGES = [
   'Nice work!',
@@ -130,7 +130,8 @@ function BoardPageContent() {
 
   const [selectedKidId, setSelectedKidId] = useState<string | null>(null)
   const [rewardModalOpen, setRewardModalOpen] = useState(false)
-  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false)
+  const [avatarPickerForKidId, setAvatarPickerForKidId] = useState<string | null>(null)
+  const [colorPickerForKidId, setColorPickerForKidId] = useState<string | null>(null)
   const [confirmModal, setConfirmModal] = useState<{
     message: string
     confirmLabel?: string
@@ -599,15 +600,15 @@ function BoardPageContent() {
     setRewardModalOpen(true)
   }
 
-  const handleSaveAvatar = async (avatar: string) => {
+  const handleSaveAvatar = async (avatar: string, kidId: string) => {
     const activeHouseholdId = requireHouseholdId()
-    if (!activeHouseholdId || !selectedKid) return
+    if (!activeHouseholdId) return
 
     setActionLoading(true)
     const { error } = await supabase
       .from('kids')
       .update({ avatar })
-      .eq('id', selectedKid.id)
+      .eq('id', kidId)
       .eq('household_id', activeHouseholdId)
 
     if (error) {
@@ -617,11 +618,33 @@ function BoardPageContent() {
     }
 
     setKids(prev =>
-      prev.map(k =>
-        k.id === selectedKid.id ? { ...k, avatar } : k
-      )
+      prev.map(k => (k.id === kidId ? { ...k, avatar } : k))
     )
-    setAvatarPickerOpen(false)
+    setAvatarPickerForKidId(null)
+    setActionLoading(false)
+  }
+
+  const handleSaveColor = async (color: string, kidId: string) => {
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
+
+    setActionLoading(true)
+    const { error } = await supabase
+      .from('kids')
+      .update({ color })
+      .eq('id', kidId)
+      .eq('household_id', activeHouseholdId)
+
+    if (error) {
+      setFriendlyError(error.message)
+      setActionLoading(false)
+      return
+    }
+
+    setKids(prev =>
+      prev.map(k => (k.id === kidId ? { ...k, color } : k))
+    )
+    setColorPickerForKidId(null)
     setActionLoading(false)
   }
 
@@ -926,22 +949,13 @@ function BoardPageContent() {
           <div className="bg-white rounded-md p-4 sm:p-5 border border-slate-200/60 shadow-sm">
             <h2 className="text-lg font-bold text-[#333333] mb-3">Who are you?</h2>
             {selectedKid && (
-              <div className="mb-3">
-                <p className="text-base text-ease-teal font-semibold">
-                  {[
-                    `Hey ${selectedKid.name}!`,
-                    `Ready to earn points, ${selectedKid.name}?`,
-                    `Let's go, ${selectedKid.name}!`,
-                  ][selectedKid.id.charCodeAt(0) % 3]}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setAvatarPickerOpen(true)}
-                  className="mt-1 text-xs text-ease-teal hover:underline"
-                >
-                  Pick your avatar
-                </button>
-              </div>
+              <p className="text-base text-ease-teal font-semibold mb-3 text-center">
+                {[
+                  `Hey ${selectedKid.name}!`,
+                  `Ready to earn points, ${selectedKid.name}?`,
+                  `Let's go, ${selectedKid.name}!`,
+                ][selectedKid.id.charCodeAt(0) % 3]}
+              </p>
             )}
             {kids.length === 0 ? (
               <div className="text-sm text-[#666666]">
@@ -955,10 +969,13 @@ function BoardPageContent() {
                   const rawColor = kid.color || '#94a3b8'
                   const kidColor = rawColor.startsWith('#') ? rawColor : '#94a3b8'
                   return (
-                    <button
+                    <div
                       key={kid.id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => handleSelectKid(kid.id)}
-                      className={`flex flex-col items-start rounded-xl px-4 py-4 min-h-[72px] text-left border-2 transition-all duration-200 active:scale-[0.98] ${
+                      onKeyDown={e => e.key === 'Enter' && handleSelectKid(kid.id)}
+                      className={`flex flex-col items-start rounded-xl px-4 py-4 min-h-[72px] text-left border-2 transition-all duration-200 active:scale-[0.98] cursor-pointer ${
                         selected ? 'shadow-md' : 'hover:border-opacity-80'
                       }`}
                       style={{
@@ -966,7 +983,7 @@ function BoardPageContent() {
                         borderColor: selected ? kidColor : `${kidColor}55`,
                       }}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 w-full">
                         <div
                           className="h-10 w-10 rounded-full border-2 flex items-center justify-center text-lg shrink-0"
                           style={{
@@ -978,23 +995,45 @@ function BoardPageContent() {
                         >
                           {kid.avatar || kid.name.charAt(0).toUpperCase()}
                         </div>
-                        <div>
+                        <div className="flex-1 min-w-0">
                           <div className="text-base font-bold">{kid.name}</div>
                           {kid.age !== null && (
                             <div className="text-xs opacity-80">Age {kid.age}</div>
                           )}
                         </div>
                         <span
-                          className="ml-auto text-xs font-semibold px-2 py-0.5 rounded-full"
+                          className="text-xs font-semibold px-2 py-0.5 rounded-full shrink-0"
                           style={{ backgroundColor: `${kidColor}44`, color: kidColor }}
                         >
                           {kid.points_balance} pts
                         </span>
+                        <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={e => {
+                              e.stopPropagation()
+                              setAvatarPickerForKidId(kid.id)
+                            }}
+                            className="text-[10px] px-2 py-1 rounded-lg border border-slate-300 text-[#333333] hover:bg-white/50 font-medium"
+                          >
+                            Avatar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={e => {
+                              e.stopPropagation()
+                              setColorPickerForKidId(kid.id)
+                            }}
+                            className="text-[10px] px-2 py-1 rounded-lg border border-slate-300 text-[#333333] hover:bg-white/50 font-medium"
+                          >
+                            Color
+                          </button>
+                        </div>
                       </div>
                       <div className="mt-1 text-xs opacity-75">
                         Lifetime: {kid.points_lifetime} pts
                       </div>
-                    </button>
+                    </div>
                   )
                 })}
               </div>
@@ -1083,40 +1122,85 @@ function BoardPageContent() {
       )}
 
       {/* Avatar picker modal */}
-      {avatarPickerOpen && selectedKid && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-slate-200 rounded-xl p-5 w-full max-w-sm shadow-lg">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-bold text-[#333333]">
-                Pick your avatar
-              </h2>
-              <button
-                onClick={() => setAvatarPickerOpen(false)}
-                className="text-sm text-[#666666] hover:text-[#333333]"
-              >
-                Close
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {KID_AVATARS.map(emoji => (
+      {avatarPickerForKidId && (() => {
+        const kid = kids.find(k => k.id === avatarPickerForKidId)
+        if (!kid) return null
+        return (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-white border border-slate-200 rounded-xl p-5 w-full max-w-sm shadow-lg">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-bold text-[#333333]">
+                  Pick your avatar – {kid.name}
+                </h2>
                 <button
-                  key={emoji}
-                  type="button"
-                  disabled={actionLoading}
-                  onClick={() => handleSaveAvatar(emoji)}
-                  className={`text-2xl p-2 rounded-xl border-2 transition-all min-h-[48px] min-w-[48px] active:scale-[0.96] ${
-                    selectedKid.avatar === emoji
-                      ? 'border-ease-teal bg-teal-50'
-                      : 'border-slate-200 hover:border-ease-teal/50'
-                  }`}
+                  onClick={() => setAvatarPickerForKidId(null)}
+                  className="text-sm text-[#666666] hover:text-[#333333]"
                 >
-                  {emoji}
+                  Close
                 </button>
-              ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {KID_AVATARS.map(emoji => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={() => handleSaveAvatar(emoji, kid.id)}
+                    className={`text-2xl p-2 rounded-xl border-2 transition-all min-h-[48px] min-w-[48px] active:scale-[0.96] ${
+                      kid.avatar === emoji
+                        ? 'border-ease-teal bg-teal-50'
+                        : 'border-slate-200 hover:border-ease-teal/50'
+                    }`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
+
+      {/* Color picker modal */}
+      {colorPickerForKidId && (() => {
+        const kid = kids.find(k => k.id === colorPickerForKidId)
+        if (!kid) return null
+        const kidColor = kid.color?.startsWith('#') ? kid.color : '#94a3b8'
+        return (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-white border border-slate-200 rounded-xl p-5 w-full max-w-sm shadow-lg">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-bold text-[#333333]">
+                  Pick your color – {kid.name}
+                </h2>
+                <button
+                  onClick={() => setColorPickerForKidId(null)}
+                  className="text-sm text-[#666666] hover:text-[#333333]"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {KID_COLORS.map(color => (
+                  <button
+                    key={color}
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={() => handleSaveColor(color, kid.id)}
+                    className={`h-10 w-10 rounded-xl border-2 transition-all active:scale-[0.96] ${
+                      kidColor === color
+                        ? 'border-ease-teal ring-2 ring-ease-teal/30'
+                        : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                    style={{ backgroundColor: color }}
+                    title={color}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Reward modal */}
       {rewardModalOpen && selectedKid && (
