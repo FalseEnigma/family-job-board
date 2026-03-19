@@ -698,14 +698,30 @@ function BoardPageContent() {
     )
   }
 
+  const moodEmoji =
+    activeJobs.length === 0 ? '😴' : recentlyEarnedPoints ? '🎉' : '😊'
+  const moodEmojiStyle = recentlyEarnedPoints
+    ? { animation: 'celebrate-pulse 0.6s ease-in-out 3' as const }
+    : undefined
+
   return (
     <div className="min-h-screen bg-ease-bg text-[#333333] flex flex-col">
-      {/* Header - Ease-style clean */}
-      <header className="px-4 py-3 sm:px-6 border-b border-slate-200/80 bg-white flex items-center justify-between gap-4">
-        <h1 className="m-0 shrink-0 flex items-center">
+      {/* Logo (left) + household name (true center) + actions (right) */}
+      <header className="relative flex items-center justify-between gap-3 px-4 py-3 sm:px-6 border-b border-slate-200/80 bg-white min-h-[56px]">
+        <h1 className="relative z-10 m-0 shrink-0 flex items-center">
           <ScoreChoreLogo variant="header" priority />
         </h1>
-        <div className="flex items-center gap-2 shrink-0">
+        <p
+          className="pointer-events-none absolute left-1/2 top-1/2 max-w-[min(52vw,16rem)] sm:max-w-[min(46vw,22rem)] -translate-x-1/2 -translate-y-1/2 text-center text-base sm:text-lg font-bold text-slate-800 truncate"
+          title={
+            householdCode
+              ? `${householdName || 'Household'} — code: ${householdCode}`
+              : (householdName ?? undefined)
+          }
+        >
+          {householdName || 'Loading...'}
+        </p>
+        <div className="relative z-10 flex items-center gap-2 shrink-0">
           {selectedKid && (
             <div className="text-right rounded-md bg-slate-50 border border-slate-200 px-4 py-2 flex items-center gap-3">
               <div
@@ -738,27 +754,6 @@ function BoardPageContent() {
         </div>
       </header>
 
-      {/* Household + tips — under the logo bar */}
-      <div className="bg-slate-50/90 border-b border-slate-200/80 px-4 py-3 sm:px-6">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
-          <span
-            className="text-3xl sm:text-4xl shrink-0 transition-transform duration-300"
-            style={{
-              animation: recentlyEarnedPoints ? 'celebrate-pulse 0.6s ease-in-out 3' : undefined,
-            }}
-            aria-hidden
-          >
-            {activeJobs.length === 0 ? '😴' : recentlyEarnedPoints ? '🎉' : '😊'}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="text-sm text-slate-600 font-medium">
-              Household: {householdName || 'Loading...'}{' '}
-              {householdCode ? `(code: ${householdCode})` : ''}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {error && (
         <div className="px-4 py-2.5 bg-red-50 border-b border-red-200 text-red-800 text-sm flex items-center justify-between gap-2">
           <span>{error}</span>
@@ -784,30 +779,41 @@ function BoardPageContent() {
       <main className="flex-1 grid gap-4 p-4 sm:p-6 lg:grid-cols-[2fr,1fr] max-w-7xl mx-auto w-full">
         {/* Left: Jobs */}
         <section className="bg-white rounded-md p-4 sm:p-5 flex flex-col border border-slate-200/60 shadow-sm">
-          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
-            <h2 className="text-lg font-bold text-[#333333] shrink-0">
-              Jobs on the board
-            </h2>
-            <p className="text-[11px] sm:text-xs md:text-sm text-slate-600 leading-snug min-w-0 lg:flex-1 lg:min-w-0">
-              <span className="font-semibold text-slate-700">How it works:</span>{' '}
-              1) Tap your name → 2) Tap a job → 3) Do it → 4) Mark it done.
-            </p>
-            <div className="flex flex-wrap gap-2 shrink-0 lg:justify-end">
-              <button
-                onClick={() => householdId && loadData(householdId)}
-                disabled={actionLoading}
-                className="min-h-[44px] px-4 py-3 rounded-xl border-2 border-slate-200 text-[#333333] font-medium hover:bg-slate-50 active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Refresh jobs"
-              >
-                ↻ Refresh
-              </button>
-              <button
-                onClick={handleRequestNewJob}
-                disabled={actionLoading}
-                className="min-h-[44px] px-5 py-3 rounded-xl bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
-              >
-                Request a new job
-              </button>
+          <div className="mb-4 flex gap-3 items-start lg:grid lg:grid-cols-[auto_auto_minmax(0,1fr)_auto] lg:items-center lg:gap-4">
+            <span
+              className="text-3xl sm:text-4xl shrink-0 pt-0.5 transition-transform duration-300 lg:col-start-1 lg:row-start-1 lg:pt-0"
+              style={moodEmojiStyle}
+              aria-hidden
+            >
+              {moodEmoji}
+            </span>
+            <div className="flex-1 min-w-0 flex flex-col gap-2 lg:contents">
+              <div className="flex flex-wrap items-center justify-between gap-2 lg:contents">
+                <h2 className="text-lg font-bold text-[#333333] shrink-0 lg:col-start-2 lg:row-start-1">
+                  Job Board
+                </h2>
+                <div className="flex flex-wrap gap-2 shrink-0 lg:col-start-4 lg:row-start-1">
+                  <button
+                    onClick={() => householdId && loadData(householdId)}
+                    disabled={actionLoading}
+                    className="min-h-[44px] px-4 py-3 rounded-xl border-2 border-slate-200 text-[#333333] font-medium hover:bg-slate-50 active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Refresh jobs"
+                  >
+                    ↻ Refresh
+                  </button>
+                  <button
+                    onClick={handleRequestNewJob}
+                    disabled={actionLoading}
+                    className="min-h-[44px] px-5 py-3 rounded-xl bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                  >
+                    Request a new job
+                  </button>
+                </div>
+              </div>
+              <p className="text-[11px] sm:text-xs md:text-sm text-slate-600 leading-snug lg:col-start-3 lg:row-start-1 lg:min-w-0">
+                <span className="font-semibold text-slate-700">How it works:</span>{' '}
+                1) Tap your name → 2) Tap a job → 3) Do it → 4) Mark it done.
+              </p>
             </div>
           </div>
 
