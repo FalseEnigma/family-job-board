@@ -20,7 +20,11 @@ import type {
 } from '../../lib/types'
 import { KID_AVATARS, KID_COLORS } from '../../lib/constants'
 import { getFriendlyErrorMessage } from '../../lib/utils'
-import { ConfirmModal, InfoModal } from '@/components/ModalDialogs'
+import {
+  ConfirmModal,
+  InfoModal,
+  type ModalVariant,
+} from '@/components/ModalDialogs'
 
 const PARENT_PIN =
   process.env.NEXT_PUBLIC_PARENT_PIN &&
@@ -120,11 +124,16 @@ function ParentPageContent() {
   type TabId = 'dashboard' | 'inbox' | 'kids' | 'jobs' | 'rewards' | 'history' | 'settings'
   const [activeTab, setActiveTab] = useState<TabId>('dashboard')
 
-  const [infoModal, setInfoModal] = useState<string | null>(null)
+  const [infoModal, setInfoModal] = useState<{
+    message: string
+    variant?: ModalVariant
+  } | null>(null)
   const [confirmModal, setConfirmModal] = useState<{
     message: string
     confirmLabel?: string
     cancelLabel?: string
+    variant?: ModalVariant
+    emoji?: string
     onConfirm: () => void | Promise<void>
   } | null>(null)
 
@@ -659,7 +668,7 @@ function ParentPageContent() {
     if (!activeHouseholdId) return
 
     if (jobTemplates.length === 0) {
-      setInfoModal('No recurring job templates yet.')
+      setInfoModal({ message: 'No recurring job templates yet.', variant: 'info' })
       return
     }
 
@@ -667,7 +676,7 @@ function ParentPageContent() {
     const activeTemplates = jobTemplates.filter(t => t.is_active)
 
     if (activeTemplates.length === 0) {
-      setInfoModal('No active recurring job templates.')
+      setInfoModal({ message: 'No active recurring job templates.', variant: 'info' })
       return
     }
 
@@ -690,7 +699,7 @@ function ParentPageContent() {
     })
 
     if (dueTemplates.length === 0) {
-      setInfoModal('No recurring jobs are due right now.')
+      setInfoModal({ message: 'No recurring jobs are due right now.', variant: 'info' })
       return
     }
 
@@ -946,6 +955,8 @@ function ParentPageContent() {
     setConfirmModal({
       message: `Unapprove "${job.name}" for ${kid.name}? This will remove ${points} pts and put the job back on the board.`,
       confirmLabel: 'Yes, unapprove',
+      variant: 'warning',
+      emoji: '⚠️',
       onConfirm: async () => {
         setConfirmModal(null)
         const newBalance = Math.max(0, kid.points_balance - points)
@@ -1141,6 +1152,8 @@ function ParentPageContent() {
         kid ? ` from ${kid.name}` : ''
       } and make it available again?`,
       confirmLabel: 'Yes, unclaim',
+      variant: 'warning',
+      emoji: '↩️',
       onConfirm: async () => {
         setConfirmModal(null)
         const { error } = await supabase
@@ -1170,6 +1183,8 @@ function ParentPageContent() {
     setConfirmModal({
       message: `Remove "${job.name}" from the board? Kids won't see it anymore.`,
       confirmLabel: 'Yes, remove',
+      variant: 'warning',
+      emoji: '🗑️',
       onConfirm: async () => {
         setConfirmModal(null)
         const { error } = await supabase
@@ -1348,6 +1363,8 @@ function ParentPageContent() {
     setConfirmModal({
       message: `Approve "${reward.name}" for ${kid.name} for ${reward.cost_points} points?`,
       confirmLabel: 'Yes, approve',
+      variant: 'success',
+      emoji: '🎁',
       onConfirm: async () => {
         setConfirmModal(null)
         const newBalance = kid.points_balance - reward.cost_points
@@ -2760,13 +2777,19 @@ function ParentPageContent() {
       </main>
 
       {infoModal && (
-        <InfoModal message={infoModal} onDismiss={() => setInfoModal(null)} />
+        <InfoModal
+          message={infoModal.message}
+          variant={infoModal.variant}
+          onDismiss={() => setInfoModal(null)}
+        />
       )}
       {confirmModal && (
         <ConfirmModal
           message={confirmModal.message}
           confirmLabel={confirmModal.confirmLabel}
           cancelLabel={confirmModal.cancelLabel}
+          variant={confirmModal.variant}
+          emoji={confirmModal.emoji}
           onConfirm={confirmModal.onConfirm}
           onCancel={() => setConfirmModal(null)}
         />

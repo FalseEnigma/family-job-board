@@ -7,7 +7,11 @@ import { supabase } from '../../lib/supabaseClient'
 import type { Kid, Job, Reward, AppSettings, JobBlockedKid, Household } from '../../lib/types'
 import { getFriendlyErrorMessage } from '../../lib/utils'
 import { KID_AVATARS, KID_COLORS } from '../../lib/constants'
-import { ConfirmModal, InfoModal } from '@/components/ModalDialogs'
+import {
+  ConfirmModal,
+  InfoModal,
+  type ModalVariant,
+} from '@/components/ModalDialogs'
 
 const ENCOURAGING_MESSAGES = [
   'Nice work!',
@@ -81,9 +85,14 @@ function BoardPageContent() {
     message: string
     confirmLabel?: string
     cancelLabel?: string
+    variant?: ModalVariant
+    emoji?: string
     onConfirm: () => void | Promise<void>
   } | null>(null)
-  const [infoModal, setInfoModal] = useState<string | null>(null)
+  const [infoModal, setInfoModal] = useState<{
+    message: string
+    variant?: ModalVariant
+  } | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [celebration, setCelebration] = useState<{
     message: string
@@ -254,7 +263,10 @@ function BoardPageContent() {
 
   const ensureKidSelected = () => {
     if (!selectedKid) {
-      setInfoModal('Tap your name first to choose who you are.')
+      setInfoModal({
+        message: 'Tap your name first to choose who you are.',
+        variant: 'info',
+      })
       return false
     }
     return true
@@ -269,7 +281,10 @@ function BoardPageContent() {
     // if job is already claimed
     if (job.is_claimed) {
       if (job.claimed_by_kid_id !== selectedKid.id) {
-        setInfoModal('This job is already claimed by someone else.')
+        setInfoModal({
+          message: 'This job is already claimed by someone else.',
+          variant: 'warning',
+        })
         return
       }
 
@@ -288,7 +303,10 @@ function BoardPageContent() {
 
     // check block list
     if (isKidBlockedForJob(job.id, kid.id)) {
-      setInfoModal('You are not allowed to do this job.')
+      setInfoModal({
+        message: 'You are not allowed to do this job.',
+        variant: 'error',
+      })
       return
     }
 
@@ -298,13 +316,18 @@ function BoardPageContent() {
       kid.age != null &&
       kid.age < job.min_age
     ) {
-      setInfoModal(`You must be at least ${job.min_age} to do this job.`)
+      setInfoModal({
+        message: `You must be at least ${job.min_age} to do this job.`,
+        variant: 'warning',
+      })
       return
     }
 
     setConfirmModal({
       message: `Do you want to claim "${job.name}" for ${job.base_points} points?`,
       confirmLabel: 'Yes, claim it',
+      variant: 'info',
+      emoji: '🎯',
       onConfirm: async () => {
         setConfirmModal(null)
         setActionLoading(true)
@@ -337,6 +360,8 @@ function BoardPageContent() {
     setConfirmModal({
       message: `Mark "${job.name}" as done for ${kid.name}?`,
       confirmLabel: 'Yes, mark done',
+      variant: 'success',
+      emoji: '✅',
       onConfirm: async () => {
         setConfirmModal(null)
         await doCompleteJob(job, kid, activeHouseholdId)
@@ -477,13 +502,18 @@ function BoardPageContent() {
     if (!ensureKidSelected() || !selectedKid) return
 
     if (!job.is_claimed || job.claimed_by_kid_id !== selectedKid.id) {
-      setInfoModal('You can only unclaim a job that you claimed.')
+      setInfoModal({
+        message: 'You can only unclaim a job that you claimed.',
+        variant: 'warning',
+      })
       return
     }
 
     setConfirmModal({
       message: `Put "${job.name}" back so someone else can claim it?`,
       confirmLabel: 'Yes, put it back',
+      variant: 'warning',
+      emoji: '↩️',
       onConfirm: async () => {
         setConfirmModal(null)
         setActionLoading(true)
@@ -518,6 +548,8 @@ function BoardPageContent() {
     setConfirmModal({
       message: `${selectedKid.name}, do you want to tell your parents you're ready for a new job?`,
       confirmLabel: 'Yes, send request',
+      variant: 'info',
+      emoji: '📬',
       onConfirm: async () => {
         setConfirmModal(null)
         setActionLoading(true)
@@ -604,6 +636,8 @@ function BoardPageContent() {
     setConfirmModal({
       message: `${selectedKid.name}, do you want to request "${reward.name}" for ${reward.cost_points} points? Your parent will decide if it is approved.`,
       confirmLabel: 'Yes, request it',
+      variant: 'success',
+      emoji: '🎁',
       onConfirm: async () => {
         setConfirmModal(null)
         setActionLoading(true)
@@ -1062,13 +1096,19 @@ function BoardPageContent() {
           message={confirmModal.message}
           confirmLabel={confirmModal.confirmLabel}
           cancelLabel={confirmModal.cancelLabel}
+          variant={confirmModal.variant}
+          emoji={confirmModal.emoji}
           onConfirm={confirmModal.onConfirm}
           onCancel={() => setConfirmModal(null)}
         />
       )}
 
       {infoModal && (
-        <InfoModal message={infoModal} onDismiss={() => setInfoModal(null)} />
+        <InfoModal
+          message={infoModal.message}
+          variant={infoModal.variant}
+          onDismiss={() => setInfoModal(null)}
+        />
       )}
 
       {/* Avatar picker modal */}
