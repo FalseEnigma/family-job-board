@@ -722,6 +722,61 @@ function ParentPageContent() {
     await loadData(activeHouseholdId)
   }
 
+  /** Add one job from this template now and reset the template timer (next auto job after frequency_days). */
+  const handleAddTemplateJobNow = async (template: JobTemplate) => {
+    setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
+
+    if (!template.is_active) {
+      setError('Turn this template on (Activate) before adding a job from it.')
+      return
+    }
+
+    const hasOpenFromTemplate = jobs.some(
+      j => j.is_active && j.template_id === template.id
+    )
+    if (hasOpenFromTemplate) {
+      setError(
+        `There is already an active job on the board from "${template.name}". Complete or remove it first, or wait until it’s gone before adding again.`
+      )
+      return
+    }
+
+    const now = new Date().toISOString()
+
+    const { error: insertError } = await supabase.from('jobs').insert({
+      name: template.name,
+      description: template.description,
+      base_points: template.base_points,
+      requires_approval: template.requires_approval,
+      min_age: template.min_age,
+      is_active: true,
+      is_claimed: false,
+      claimed_by_kid_id: null,
+      template_id: template.id,
+      household_id: activeHouseholdId
+    })
+
+    if (insertError) {
+      setError(insertError.message)
+      return
+    }
+
+    const { error: updateError } = await supabase
+      .from('job_templates')
+      .update({ last_generated_at: now })
+      .eq('id', template.id)
+      .eq('household_id', activeHouseholdId)
+
+    if (updateError) {
+      setError(updateError.message)
+      return
+    }
+
+    await loadData(activeHouseholdId)
+  }
+
   const handleToggleTemplateActive = async (template: JobTemplate) => {
     setError(null)
     const activeHouseholdId = requireHouseholdId()
@@ -2305,14 +2360,24 @@ function ParentPageContent() {
                           </>
                         )}
                       </div>
-                      <div className="mt-2 flex gap-2">
+                      <div className="mt-2 flex flex-wrap gap-2">
                         <button
+                          type="button"
+                          onClick={() => handleAddTemplateJobNow(t)}
+                          className="text-[11px] px-2 py-1 rounded border border-ease-teal bg-teal-50 text-ease-teal font-semibold hover:bg-teal-100"
+                          title="Puts this job on the board now and starts the wait for the next one (same as your “every X days” setting)."
+                        >
+                          Add to board &amp; reset timer
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleToggleTemplateActive(t)}
                           className="text-[11px] px-2 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-200"
                         >
                           {t.is_active ? 'Deactivate' : 'Activate'}
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleStartEditTemplate(t)}
                           className="text-[11px] px-2 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-200"
                         >
