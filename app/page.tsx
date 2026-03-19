@@ -68,7 +68,7 @@ export default function Home() {
             📋
           </p>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#333333]">
-            Family Job Board
+            ScoreChore
           </h1>
           <p className="mt-3 text-lg text-[#666666] max-w-2xl mx-auto sm:mx-0">
             Claim chores, earn points, and pick rewards — all in one place for

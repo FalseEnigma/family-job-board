@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Family Job Board",
-  description: "A family chores board with points and approvals.",
+  title: "ScoreChore",
+  description:
+    "Family chores, points, and rewards — claim jobs, earn scores, and redeem rewards together.",
 };
 
 export default function RootLayout({

@@ -712,7 +712,7 @@ function BoardPageContent() {
             {activeJobs.length === 0 ? '😴' : recentlyEarnedPoints ? '🎉' : '😊'}
           </span>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#333333]">Family Job Board</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#333333]">ScoreChore</h1>
           <div className="text-xs text-[#666666] mt-1">
             Household: {householdName || 'Loading...'}{' '}
             {householdCode ? `(code: ${householdCode})` : ''}

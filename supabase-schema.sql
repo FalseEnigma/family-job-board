@@ -1,4 +1,4 @@
--- Family Job Board - Full Supabase Schema (from scratch)
+-- ScoreChore - Full Supabase Schema (from scratch)
 -- Run this in Supabase SQL Editor after creating a new project.
 
 -- =============================================================================

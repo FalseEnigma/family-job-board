@@ -4,7 +4,7 @@
 
 1. Go to [supabase.com](https://supabase.com) and sign in.
 2. Click **New project**.
-3. Choose organization, name it (e.g. "Family Job Board"), set a database password, pick a region.
+3. Choose organization, name it (e.g. "ScoreChore"), set a database password, pick a region.
 4. Click **Create new project** and wait for it to finish.
 
 ## 2. Run the schema SQL
@@ -24,7 +24,7 @@
 
 ## 4. Update `.env.local`
 
-Create or edit `family-job-board/.env.local`:
+Create or edit `.env.local` in the project root:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
