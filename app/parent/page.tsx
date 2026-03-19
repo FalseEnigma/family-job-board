@@ -65,6 +65,7 @@ function ParentPageContent() {
     setError(getFriendlyErrorMessage(msg))
   }
 
+  const [addKidModalOpen, setAddKidModalOpen] = useState(false)
   const [newKidName, setNewKidName] = useState('')
   const [newKidColor, setNewKidColor] = useState(KID_COLORS[0])
   const [newKidAge, setNewKidAge] = useState<number | ''>('')
@@ -486,6 +487,8 @@ function ParentPageContent() {
     setNewKidName('')
     setNewKidAge('')
     setNewKidAvatar(null)
+    setNewKidColor(KID_COLORS[0])
+    setAddKidModalOpen(false)
     loadData(activeHouseholdId)
   }
 
@@ -1683,85 +1686,17 @@ function ParentPageContent() {
       {activeTab === 'kids' && (
       <div className="space-y-6 max-w-3xl">
         <div className="space-y-4">
-          {/* Add Kid */}
-          <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
-            <h2 className="text-lg font-bold text-[#333333] mb-4">Add Kid</h2>
-            <form
-              className="grid gap-3 md:grid-cols-4 items-end"
-              onSubmit={handleAddKid}
-            >
-              <div className="flex flex-col">
-                <label className="text-sm text-slate-600 mb-1">Name</label>
-                <input
-                  className="border rounded px-2 py-1"
-                  value={newKidName}
-                  onChange={e => setNewKidName(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-col">
-                <label className="text-sm text-slate-600 mb-1">Age</label>
-                <input
-                  type="number"
-                  className="border rounded px-2 py-1"
-                  value={newKidAge}
-                  onChange={e =>
-                    setNewKidAge(
-                      e.target.value === '' ? '' : Number(e.target.value)
-                    )
-                  }
-                  min={0}
-                />
-              </div>
-              <div className="flex flex-col md:col-span-4">
-                <label className="text-sm text-slate-600 mb-1">Color</label>
-                <div className="flex flex-wrap gap-2">
-                  {KID_COLORS.map(color => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => setNewKidColor(color)}
-                      className={`h-9 w-9 rounded-lg border-2 transition-all ${
-                        newKidColor === color
-                          ? 'border-ease-teal ring-2 ring-ease-teal/30'
-                          : 'border-slate-200 hover:border-slate-300'
-                      }`}
-                      style={{ backgroundColor: color }}
-                      title={color}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="flex flex-col md:col-span-4">
-                <label className="text-sm text-slate-600 mb-1">Avatar (optional)</label>
-                <div className="flex flex-wrap gap-2">
-                  {KID_AVATARS.map(emoji => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => setNewKidAvatar(prev => prev === emoji ? null : emoji)}
-                      className={`text-2xl p-1.5 rounded-lg border-2 transition-all ${
-                        newKidAvatar === emoji
-                          ? 'border-ease-teal bg-teal-50'
-                          : 'border-slate-200 hover:border-slate-300'
-                      }`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <button
-                type="submit"
-                className="bg-ease-teal text-white rounded-md px-4 py-2 font-semibold hover:bg-ease-teal-hover"
-              >
-                Add Kid
-              </button>
-            </form>
-          </section>
-
-          {/* Kids summary */}
           <section>
-            <h2 className="text-lg font-semibold mb-2">Kids</h2>
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <h2 className="text-lg font-semibold text-[#333333]">Kids</h2>
+              <button
+                type="button"
+                onClick={() => setAddKidModalOpen(true)}
+                className="min-h-[40px] px-4 py-2 rounded-lg bg-ease-teal text-white text-sm font-semibold hover:bg-ease-teal-hover"
+              >
+                Add a kid
+              </button>
+            </div>
             <div className="grid gap-3 md:grid-cols-2">
               {kids.map(kid => (
                 <div
@@ -1888,8 +1823,8 @@ function ParentPageContent() {
               ))}
 
               {kids.length === 0 && (
-                <div className="text-slate-600">
-                  No kids yet. Add one above.
+                <div className="text-slate-600 col-span-full">
+                  No kids yet. Tap <span className="font-semibold">Add a kid</span> to get started.
                 </div>
               )}
             </div>
@@ -1966,6 +1901,114 @@ function ParentPageContent() {
             )}
           </section>
         </div>
+
+        {addKidModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+            onClick={() => setAddKidModalOpen(false)}
+            role="presentation"
+          >
+            <div
+              className="bg-white rounded-xl shadow-xl border border-slate-200/80 p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-[#333333]">Add a kid</h2>
+                <button
+                  type="button"
+                  onClick={() => setAddKidModalOpen(false)}
+                  className="text-sm text-slate-600 hover:text-slate-900"
+                >
+                  Close
+                </button>
+              </div>
+              <form className="space-y-4" onSubmit={handleAddKid}>
+                <div className="flex flex-col">
+                  <label className="text-sm text-slate-600 mb-1">Name</label>
+                  <input
+                    className="border border-slate-200 rounded-lg px-3 py-2 w-full"
+                    value={newKidName}
+                    onChange={e => setNewKidName(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-slate-600 mb-1">Age</label>
+                  <input
+                    type="number"
+                    className="border border-slate-200 rounded-lg px-3 py-2 w-full"
+                    value={newKidAge}
+                    onChange={e =>
+                      setNewKidAge(
+                        e.target.value === '' ? '' : Number(e.target.value)
+                      )
+                    }
+                    min={0}
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-slate-600 mb-1">Color</label>
+                  <div className="flex flex-wrap gap-2">
+                    {KID_COLORS.map(color => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setNewKidColor(color)}
+                        className={`h-9 w-9 rounded-lg border-2 transition-all ${
+                          newKidColor === color
+                            ? 'border-ease-teal ring-2 ring-ease-teal/30'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                        style={{ backgroundColor: color }}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-slate-600 mb-1">
+                    Avatar (optional)
+                  </label>
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                    {KID_AVATARS.map(emoji => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() =>
+                          setNewKidAvatar(prev =>
+                            prev === emoji ? null : emoji
+                          )
+                        }
+                        className={`text-2xl p-1.5 rounded-lg border-2 transition-all ${
+                          newKidAvatar === emoji
+                            ? 'border-ease-teal bg-teal-50'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setAddKidModalOpen(false)}
+                    className="flex-1 min-h-[44px] rounded-lg border-2 border-slate-200 text-slate-700 font-medium hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 min-h-[44px] rounded-lg bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover"
+                  >
+                    Add kid
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
       )}
 
