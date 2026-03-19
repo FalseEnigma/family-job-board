@@ -66,10 +66,11 @@ export default function Home() {
       <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:py-14">
         <div className="text-center sm:text-left mb-8 sm:mb-10">
           <h1 className="m-0 mb-5 flex flex-col items-center sm:items-start gap-1">
-            <span className="sr-only">ScoreChore</span>
-            <span aria-hidden className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.06)]">
-              <ScoreChoreLogo variant="hero" />
-            </span>
+            <ScoreChoreLogo
+              variant="hero"
+              priority
+              className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.06)]"
+            />
           </h1>
           <p className="mt-2 text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto sm:mx-0 leading-relaxed">
             Claim chores, earn points, and pick rewards — all in one place for

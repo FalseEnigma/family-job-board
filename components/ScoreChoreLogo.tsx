@@ -1,58 +1,35 @@
-/**
- * Transparent wordmark — no raster “white box”. Uses app fonts (Geist) + brand colors.
- * The “C” in Chore includes a teal checkmark (completed chore motif).
- */
-function ChoreWithCheckmark() {
-  return (
-    <span className="inline-flex items-baseline text-slate-800">
-      {/* Only the “C” is the positioning context so the check scales with the letter */}
-      <span className="relative inline-block align-baseline">
-        <span className="font-extrabold leading-none select-none">C</span>
-        <svg
-          className="pointer-events-none absolute text-ease-teal
-            left-[0.05em] top-[24%] w-[0.48em] h-[0.48em]
-            [filter:drop-shadow(0_0.5px_0_rgba(255,255,255,0.85))]"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden
-        >
-          <path
-            d="M6 12.5 L10.8 17.2 L18.5 7.5"
-            stroke="currentColor"
-            strokeWidth="3.25"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </span>
-      <span className="font-extrabold leading-none">hore</span>
-    </span>
-  )
-}
+import Image from 'next/image'
 
+const VARIANT_CLASSES = {
+  /** Landing — large */
+  hero: 'h-16 sm:h-24 md:h-28 lg:h-32 w-auto max-w-full',
+  /** Kid board header */
+  header: 'h-11 sm:h-14 min-[480px]:h-16 w-auto max-w-[min(100%,360px)]',
+  /** Parent toolbar — aligns with tab row */
+  nav: 'h-9 sm:h-10 md:h-11 w-auto',
+} as const
+
+/**
+ * Brand mark from `/public/scorechore-logo.svg` (transparent, includes check-in-C).
+ */
 export function ScoreChoreLogo({
   variant = 'header',
   className = '',
+  priority = false,
 }: {
-  /** hero: landing page · header: kid board · nav: parent bar */
-  variant?: 'hero' | 'header' | 'nav'
+  variant?: keyof typeof VARIANT_CLASSES
   className?: string
+  /** Set true for LCP (e.g. home hero) */
+  priority?: boolean
 }) {
-  const sizes = {
-    hero:
-      'text-[2.85rem] leading-[0.95] sm:text-6xl sm:leading-none md:text-7xl md:leading-none lg:text-8xl',
-    header:
-      'text-[2.35rem] leading-none sm:text-[2.65rem] sm:leading-none min-[480px]:text-[3rem]',
-    nav: 'text-[2.15rem] leading-none sm:text-[2.5rem] sm:leading-none md:text-[3rem] md:leading-none',
-  }
-
   return (
-    <span
-      className={`inline-flex items-baseline font-extrabold tracking-tight ${sizes[variant]} ${className}`}
-    >
-      <span className="text-ease-teal">Score</span>
-      <ChoreWithCheckmark />
-    </span>
+    <Image
+      src="/scorechore-logo.svg"
+      alt="ScoreChore"
+      width={480}
+      height={90}
+      priority={priority}
+      className={`${VARIANT_CLASSES[variant]} ${className}`.trim()}
+    />
   )
 }

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 90" fill="none">
+  <defs>
+    <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00B4A6"/>
+      <stop offset="100%" stop-color="#00A89D"/>
+    </linearGradient>
+  </defs>
+
+  <!-- "Score" in teal -->
+  <text x="2" y="72" font-family="'Nunito Black', 'Quicksand', 'Baloo 2', 'Arial Black', sans-serif" font-size="68" font-weight="900" letter-spacing="-1.5" fill="url(#tealGrad)">Score</text>
+
+  <!-- Full "Chore" text in dark -->
+  <text x="226" y="72" font-family="'Nunito Black', 'Quicksand', 'Baloo 2', 'Arial Black', sans-serif" font-size="68" font-weight="900" letter-spacing="-1.5" fill="#1B2838">Chore</text>
+
+  <!-- Teal checkmark in C opening - larger, bolder -->
+  <path d="M 254 40 L 264 54 L 282 26" stroke="#00B4A6" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

@@ -703,10 +703,7 @@ function BoardPageContent() {
       {/* Header - Ease-style clean */}
       <header className="px-4 py-3 sm:px-6 border-b border-slate-200/80 bg-white flex items-center justify-between gap-4">
         <h1 className="m-0 shrink-0 flex items-center">
-          <span className="sr-only">ScoreChore</span>
-          <span aria-hidden className="flex items-center">
-            <ScoreChoreLogo variant="header" />
-          </span>
+          <ScoreChoreLogo variant="header" priority />
         </h1>
         <div className="flex items-center gap-2 shrink-0">
           {selectedKid && (

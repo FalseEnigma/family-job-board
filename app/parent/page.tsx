@@ -1533,14 +1533,8 @@ function ParentPageContent() {
           {/* Logo + tabs + Kid view — single vertical center line */}
           <div className="flex flex-col gap-3 py-3 sm:py-3.5">
             <div className="flex items-center justify-between gap-3 sm:gap-4 min-h-[44px]">
-              <div
-                className="shrink-0 flex items-center drop-shadow-[0_1px_1px_rgba(0,0,0,0.05)]"
-                role="img"
-                aria-label="ScoreChore"
-              >
-                <span aria-hidden="true">
-                  <ScoreChoreLogo variant="nav" />
-                </span>
+              <div className="shrink-0 flex items-center drop-shadow-[0_1px_1px_rgba(0,0,0,0.05)]">
+                <ScoreChoreLogo variant="nav" />
               </div>
               <Link
                 href={
