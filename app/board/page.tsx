@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
 import type { Kid, Job, Reward, AppSettings, JobBlockedKid, Household } from '../../lib/types'
 import { getFriendlyErrorMessage } from '../../lib/utils'
+import { KID_AVATARS } from '../../lib/constants'
 
 const ENCOURAGING_MESSAGES = [
   'Nice work!',
@@ -73,6 +74,7 @@ function BoardPageContent() {
 
   const [selectedKidId, setSelectedKidId] = useState<string | null>(null)
   const [rewardModalOpen, setRewardModalOpen] = useState(false)
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [celebration, setCelebration] = useState<{
     message: string
@@ -151,7 +153,7 @@ function BoardPageContent() {
         supabase
           .from('kids')
           .select(
-            'id, name, age, color, points_balance, points_lifetime, is_active, household_id'
+            'id, name, age, color, avatar, points_balance, points_lifetime, is_active, household_id'
           )
           .eq('is_active', true)
           .eq('household_id', activeHouseholdId)
@@ -524,6 +526,32 @@ function BoardPageContent() {
     setRewardModalOpen(true)
   }
 
+  const handleSaveAvatar = async (avatar: string) => {
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId || !selectedKid) return
+
+    setActionLoading(true)
+    const { error } = await supabase
+      .from('kids')
+      .update({ avatar })
+      .eq('id', selectedKid.id)
+      .eq('household_id', activeHouseholdId)
+
+    if (error) {
+      setFriendlyError(error.message)
+      setActionLoading(false)
+      return
+    }
+
+    setKids(prev =>
+      prev.map(k =>
+        k.id === selectedKid.id ? { ...k, avatar } : k
+      )
+    )
+    setAvatarPickerOpen(false)
+    setActionLoading(false)
+  }
+
   const handleRequestReward = async (reward: Reward) => {
     setError(null)
     const activeHouseholdId = requireHouseholdId()
@@ -618,12 +646,25 @@ function BoardPageContent() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {selectedKid && (
-            <div className="text-right rounded-md bg-slate-50 border border-slate-200 px-4 py-2">
-              <div className="text-xs text-[#666666] uppercase tracking-wider">You are</div>
-              <div className="text-xl font-bold text-ease-teal">{selectedKid.name}</div>
-              <div className="text-xs text-[#666666] mt-1">
-                Current: {selectedKid.points_balance} pts • Lifetime:{' '}
-                {selectedKid.points_lifetime} pts
+            <div className="text-right rounded-md bg-slate-50 border border-slate-200 px-4 py-2 flex items-center gap-3">
+              <div
+                className="h-10 w-10 rounded-full border-2 flex items-center justify-center text-xl shrink-0"
+                style={{
+                  backgroundColor:
+                    selectedKid.color?.startsWith('#') ? selectedKid.color : '#94a3b8',
+                  borderColor:
+                    selectedKid.color?.startsWith('#') ? selectedKid.color : '#94a3b8',
+                }}
+              >
+                {selectedKid.avatar || selectedKid.name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <div className="text-xs text-[#666666] uppercase tracking-wider">You are</div>
+                <div className="text-xl font-bold text-ease-teal">{selectedKid.name}</div>
+                <div className="text-xs text-[#666666] mt-1">
+                  Current: {selectedKid.points_balance} pts • Lifetime:{' '}
+                  {selectedKid.points_lifetime} pts
+                </div>
               </div>
             </div>
           )}
@@ -790,13 +831,22 @@ function BoardPageContent() {
           <div className="bg-white rounded-md p-4 sm:p-5 border border-slate-200/60 shadow-sm">
             <h2 className="text-lg font-bold text-[#333333] mb-3">Who are you?</h2>
             {selectedKid && (
-              <p className="text-base text-ease-teal font-semibold mb-3">
-                {[
-                  `Hey ${selectedKid.name}!`,
-                  `Ready to earn points, ${selectedKid.name}?`,
-                  `Let's go, ${selectedKid.name}!`,
-                ][selectedKid.id.charCodeAt(0) % 3]}
-              </p>
+              <div className="mb-3">
+                <p className="text-base text-ease-teal font-semibold">
+                  {[
+                    `Hey ${selectedKid.name}!`,
+                    `Ready to earn points, ${selectedKid.name}?`,
+                    `Let's go, ${selectedKid.name}!`,
+                  ][selectedKid.id.charCodeAt(0) % 3]}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setAvatarPickerOpen(true)}
+                  className="mt-1 text-xs text-ease-teal hover:underline"
+                >
+                  Pick your avatar
+                </button>
+              </div>
             )}
             {kids.length === 0 ? (
               <div className="text-sm text-[#666666]">
@@ -823,15 +873,15 @@ function BoardPageContent() {
                     >
                       <div className="flex items-center gap-3">
                         <div
-                          className="h-10 w-10 rounded-full border-2 flex items-center justify-center text-lg"
+                          className="h-10 w-10 rounded-full border-2 flex items-center justify-center text-lg shrink-0"
                           style={{
                             backgroundColor: kidColor,
                             borderColor: kidColor,
                             color: '#fff',
-                            textShadow: '0 1px 1px rgba(0,0,0,0.2)',
+                            textShadow: kid.avatar ? 'none' : '0 1px 1px rgba(0,0,0,0.2)',
                           }}
                         >
-                          {kid.name.charAt(0).toUpperCase()}
+                          {kid.avatar || kid.name.charAt(0).toUpperCase()}
                         </div>
                         <div>
                           <div className="text-base font-bold">{kid.name}</div>
@@ -924,6 +974,42 @@ function BoardPageContent() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Avatar picker modal */}
+      {avatarPickerOpen && selectedKid && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-200 rounded-xl p-5 w-full max-w-sm shadow-lg">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-[#333333]">
+                Pick your avatar
+              </h2>
+              <button
+                onClick={() => setAvatarPickerOpen(false)}
+                className="text-sm text-[#666666] hover:text-[#333333]"
+              >
+                Close
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {KID_AVATARS.map(emoji => (
+                <button
+                  key={emoji}
+                  type="button"
+                  disabled={actionLoading}
+                  onClick={() => handleSaveAvatar(emoji)}
+                  className={`text-2xl p-2 rounded-xl border-2 transition-all min-h-[48px] min-w-[48px] active:scale-[0.96] ${
+                    selectedKid.avatar === emoji
+                      ? 'border-ease-teal bg-teal-50'
+                      : 'border-slate-200 hover:border-ease-teal/50'
+                  }`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Reward modal */}

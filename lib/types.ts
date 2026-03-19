@@ -10,6 +10,7 @@ export type Kid = {
   name: string
   age?: number | null
   color?: string | null
+  avatar?: string | null
   points_balance: number
   points_lifetime: number
 }

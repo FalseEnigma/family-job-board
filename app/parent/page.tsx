@@ -18,7 +18,7 @@ import type {
   PointTransaction,
   RewardRequest,
 } from '../../lib/types'
-import { DEFAULT_HOUSEHOLD_ID } from '../../lib/constants'
+import { DEFAULT_HOUSEHOLD_ID, KID_AVATARS } from '../../lib/constants'
 import { getFriendlyErrorMessage } from '../../lib/utils'
 
 const PARENT_PIN =
@@ -68,6 +68,13 @@ function ParentPageContent() {
   const [newKidName, setNewKidName] = useState('')
   const [newKidColor, setNewKidColor] = useState('#22c55e')
   const [newKidAge, setNewKidAge] = useState<number | ''>('')
+  const [newKidAvatar, setNewKidAvatar] = useState<string | null>(null)
+
+  const [editingKidId, setEditingKidId] = useState<string | null>(null)
+  const [editKidName, setEditKidName] = useState('')
+  const [editKidAge, setEditKidAge] = useState<number | ''>('')
+  const [editKidColor, setEditKidColor] = useState('#22c55e')
+  const [editKidAvatar, setEditKidAvatar] = useState<string | null>(null)
 
   // one-time job form
   const [newJobName, setNewJobName] = useState('')
@@ -198,7 +205,7 @@ function ParentPageContent() {
         .single(),
       supabase
         .from('kids')
-        .select('id, name, points_balance, points_lifetime')
+        .select('id, name, age, color, avatar, points_balance, points_lifetime')
         .eq('is_active', true)
         .eq('household_id', activeHouseholdId)
         .order('created_at', { ascending: true }),
@@ -389,6 +396,7 @@ function ParentPageContent() {
       name: newKidName.trim(),
       color: newKidColor,
       age: newKidAge === '' ? null : newKidAge,
+      avatar: newKidAvatar,
       household_id: activeHouseholdId
     })
 
@@ -399,6 +407,54 @@ function ParentPageContent() {
 
     setNewKidName('')
     setNewKidAge('')
+    setNewKidAvatar(null)
+    loadData(activeHouseholdId)
+  }
+
+  const handleStartEditKid = (kid: Kid) => {
+    setEditKidName(kid.name)
+    setEditKidAge(kid.age ?? '')
+    setEditKidColor(kid.color || '#22c55e')
+    setEditKidAvatar(kid.avatar || null)
+    setEditingKidId(kid.id)
+  }
+
+  const handleCancelEditKid = () => {
+    setEditingKidId(null)
+    setEditKidName('')
+    setEditKidAge('')
+    setEditKidColor('#22c55e')
+    setEditKidAvatar(null)
+  }
+
+  const handleUpdateKid = async (e: FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId || !editingKidId) return
+
+    if (!editKidName.trim()) {
+      setError('Name is required')
+      return
+    }
+
+    const { error } = await supabase
+      .from('kids')
+      .update({
+        name: editKidName.trim(),
+        age: editKidAge === '' ? null : editKidAge,
+        color: editKidColor,
+        avatar: editKidAvatar
+      })
+      .eq('id', editingKidId)
+      .eq('household_id', activeHouseholdId)
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+
+    handleCancelEditKid()
     loadData(activeHouseholdId)
   }
 
@@ -1579,15 +1635,32 @@ function ParentPageContent() {
                 />
               </div>
               <div className="flex flex-col">
-                <label className="text-sm text-slate-600 mb-1">
-                  Color
-                </label>
+                <label className="text-sm text-slate-600 mb-1">Color</label>
                 <input
                   type="color"
                   className="border rounded h-9 w-16 p-0"
                   value={newKidColor}
                   onChange={e => setNewKidColor(e.target.value)}
                 />
+              </div>
+              <div className="flex flex-col md:col-span-4">
+                <label className="text-sm text-slate-600 mb-1">Avatar (optional)</label>
+                <div className="flex flex-wrap gap-2">
+                  {KID_AVATARS.map(emoji => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => setNewKidAvatar(prev => prev === emoji ? null : emoji)}
+                      className={`text-2xl p-1.5 rounded-lg border-2 transition-all ${
+                        newKidAvatar === emoji
+                          ? 'border-ease-teal bg-teal-50'
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
               </div>
               <button
                 type="submit"
@@ -1605,28 +1678,114 @@ function ParentPageContent() {
               {kids.map(kid => (
                 <div
                   key={kid.id}
-                  className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60 flex justify-between items-center"
+                  className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60"
                 >
-                  <div>
-                    <div className="text-lg font-semibold">
-                      {kid.name}
-                    </div>
-                    <div className="text-sm text-slate-600 mt-1">
-                      Balance:{' '}
-                      <span className="font-semibold">
-                        {kid.points_balance}
-                      </span>{' '}
-                      pts
-                    </div>
-                    <div className="text-sm text-slate-600">
-                      Lifetime:{' '}
-                      <span className="font-semibold">
-                        {kid.points_lifetime}
-                      </span>{' '}
-                      pts
-                    </div>
-                  </div>
-                  <div className="h-6 w-6 rounded-full border border-slate-300" />
+                  {editingKidId === kid.id ? (
+                    <form onSubmit={handleUpdateKid} className="space-y-3">
+                      <div className="flex flex-col">
+                        <label className="text-sm text-slate-600 mb-1">Name</label>
+                        <input
+                          className="border rounded px-2 py-1"
+                          value={editKidName}
+                          onChange={e => setEditKidName(e.target.value)}
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <label className="text-sm text-slate-600 mb-1">Age</label>
+                        <input
+                          type="number"
+                          className="border rounded px-2 py-1"
+                          value={editKidAge}
+                          onChange={e =>
+                            setEditKidAge(
+                              e.target.value === '' ? '' : Number(e.target.value)
+                            )
+                          }
+                          min={0}
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <label className="text-sm text-slate-600 mb-1">Color</label>
+                        <input
+                          type="color"
+                          className="border rounded h-9 w-16 p-0"
+                          value={editKidColor}
+                          onChange={e => setEditKidColor(e.target.value)}
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <label className="text-sm text-slate-600 mb-1">Avatar</label>
+                        <div className="flex flex-wrap gap-2">
+                          {KID_AVATARS.map(emoji => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() =>
+                                setEditKidAvatar(prev =>
+                                  prev === emoji ? null : emoji
+                                )
+                              }
+                              className={`text-xl p-1 rounded border-2 transition-all ${
+                                editKidAvatar === emoji
+                                  ? 'border-ease-teal bg-teal-50'
+                                  : 'border-slate-200'
+                              }`}
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          type="button"
+                          onClick={handleCancelEditKid}
+                          className="text-xs px-3 py-1.5 rounded border border-slate-300 text-slate-700 hover:bg-slate-200"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="text-xs px-3 py-1.5 rounded bg-ease-teal text-white hover:bg-ease-teal-hover font-semibold"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="h-10 w-10 rounded-full border-2 flex items-center justify-center text-2xl"
+                            style={{
+                              backgroundColor: kid.color || '#94a3b8',
+                              borderColor: kid.color || '#94a3b8',
+                            }}
+                          >
+                            {kid.avatar || kid.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="text-lg font-semibold">{kid.name}</div>
+                            {kid.age != null && (
+                              <div className="text-sm text-slate-600">Age {kid.age}</div>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleStartEditKid(kid)}
+                          className="text-xs px-3 py-1.5 rounded border border-slate-300 text-slate-700 hover:bg-slate-200"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                      <div className="text-sm text-slate-600 mt-2">
+                        Balance: <span className="font-semibold">{kid.points_balance}</span> pts
+                        {' • '}
+                        Lifetime: <span className="font-semibold">{kid.points_lifetime}</span> pts
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
 

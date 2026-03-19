@@ -1,3 +1,9 @@
 export const DEFAULT_HOUSEHOLD_ID =
   process.env.NEXT_PUBLIC_DEFAULT_HOUSEHOLD_ID ||
   '7591ea9c-90f5-4d7f-9da2-aee44dd58039'
+
+export const KID_AVATARS = [
+  '🧒', '👦', '👧', '🦸', '🦸‍♀️', '🧙', '🧙‍♀️',
+  '🐱', '🐶', '🦊', '🐼', '🦁', '🐸', '🦄', '🦋',
+  '⭐', '🌟', '💫', '🌈', '🎨', '🎮', '⚽', '🎸',
+]
