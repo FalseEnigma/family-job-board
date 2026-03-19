@@ -18,7 +18,7 @@ import type {
   PointTransaction,
   RewardRequest,
 } from '../../lib/types'
-import { DEFAULT_HOUSEHOLD_ID, KID_AVATARS } from '../../lib/constants'
+import { DEFAULT_HOUSEHOLD_ID, KID_AVATARS, KID_COLORS } from '../../lib/constants'
 import { getFriendlyErrorMessage } from '../../lib/utils'
 
 const PARENT_PIN =
@@ -66,14 +66,14 @@ function ParentPageContent() {
   }
 
   const [newKidName, setNewKidName] = useState('')
-  const [newKidColor, setNewKidColor] = useState('#22c55e')
+  const [newKidColor, setNewKidColor] = useState(KID_COLORS[0])
   const [newKidAge, setNewKidAge] = useState<number | ''>('')
   const [newKidAvatar, setNewKidAvatar] = useState<string | null>(null)
 
   const [editingKidId, setEditingKidId] = useState<string | null>(null)
   const [editKidName, setEditKidName] = useState('')
   const [editKidAge, setEditKidAge] = useState<number | ''>('')
-  const [editKidColor, setEditKidColor] = useState('#22c55e')
+  const [editKidColor, setEditKidColor] = useState(KID_COLORS[0])
   const [editKidAvatar, setEditKidAvatar] = useState<string | null>(null)
 
   // one-time job form
@@ -492,7 +492,7 @@ function ParentPageContent() {
   const handleStartEditKid = (kid: Kid) => {
     setEditKidName(kid.name)
     setEditKidAge(kid.age ?? '')
-    setEditKidColor(kid.color || '#22c55e')
+    setEditKidColor(kid.color && KID_COLORS.includes(kid.color) ? kid.color : KID_COLORS[0])
     setEditKidAvatar(kid.avatar || null)
     setEditingKidId(kid.id)
   }
@@ -501,7 +501,7 @@ function ParentPageContent() {
     setEditingKidId(null)
     setEditKidName('')
     setEditKidAge('')
-    setEditKidColor('#22c55e')
+    setEditKidColor(KID_COLORS[0])
     setEditKidAvatar(null)
   }
 
@@ -1712,14 +1712,24 @@ function ParentPageContent() {
                   min={0}
                 />
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col md:col-span-4">
                 <label className="text-sm text-slate-600 mb-1">Color</label>
-                <input
-                  type="color"
-                  className="border rounded h-9 w-16 p-0"
-                  value={newKidColor}
-                  onChange={e => setNewKidColor(e.target.value)}
-                />
+                <div className="flex flex-wrap gap-2">
+                  {KID_COLORS.map(color => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setNewKidColor(color)}
+                      className={`h-9 w-9 rounded-lg border-2 transition-all ${
+                        newKidColor === color
+                          ? 'border-ease-teal ring-2 ring-ease-teal/30'
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                      style={{ backgroundColor: color }}
+                      title={color}
+                    />
+                  ))}
+                </div>
               </div>
               <div className="flex flex-col md:col-span-4">
                 <label className="text-sm text-slate-600 mb-1">Avatar (optional)</label>
@@ -1784,12 +1794,22 @@ function ParentPageContent() {
                       </div>
                       <div className="flex flex-col">
                         <label className="text-sm text-slate-600 mb-1">Color</label>
-                        <input
-                          type="color"
-                          className="border rounded h-9 w-16 p-0"
-                          value={editKidColor}
-                          onChange={e => setEditKidColor(e.target.value)}
-                        />
+                        <div className="flex flex-wrap gap-2">
+                          {KID_COLORS.map(color => (
+                            <button
+                              key={color}
+                              type="button"
+                              onClick={() => setEditKidColor(color)}
+                              className={`h-9 w-9 rounded-lg border-2 transition-all ${
+                                editKidColor === color
+                                  ? 'border-ease-teal ring-2 ring-ease-teal/30'
+                                  : 'border-slate-200 hover:border-slate-300'
+                              }`}
+                              style={{ backgroundColor: color }}
+                              title={color}
+                            />
+                          ))}
+                        </div>
                       </div>
                       <div className="flex flex-col">
                         <label className="text-sm text-slate-600 mb-1">Avatar</label>
