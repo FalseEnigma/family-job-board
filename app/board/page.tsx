@@ -750,15 +750,11 @@ function BoardPageContent() {
           >
             {activeJobs.length === 0 ? '😴' : recentlyEarnedPoints ? '🎉' : '😊'}
           </span>
-          <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="min-w-0 flex-1">
             <div className="text-sm text-slate-600 font-medium">
               Household: {householdName || 'Loading...'}{' '}
               {householdCode ? `(code: ${householdCode})` : ''}
             </div>
-            <p className="text-sm sm:text-base text-slate-600 leading-snug max-w-3xl">
-              <span className="font-semibold text-slate-700">How it works:</span>{' '}
-              1) Tap your name → 2) Tap a job → 3) Do it → 4) Mark it done.
-            </p>
           </div>
         </div>
       </div>
@@ -788,9 +784,15 @@ function BoardPageContent() {
       <main className="flex-1 grid gap-4 p-4 sm:p-6 lg:grid-cols-[2fr,1fr] max-w-7xl mx-auto w-full">
         {/* Left: Jobs */}
         <section className="bg-white rounded-md p-4 sm:p-5 flex flex-col border border-slate-200/60 shadow-sm">
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-            <h2 className="text-lg font-bold text-[#333333]">Jobs on the board</h2>
-            <div className="flex gap-2">
+          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+            <h2 className="text-lg font-bold text-[#333333] shrink-0">
+              Jobs on the board
+            </h2>
+            <p className="text-[11px] sm:text-xs md:text-sm text-slate-600 leading-snug min-w-0 lg:flex-1 lg:min-w-0">
+              <span className="font-semibold text-slate-700">How it works:</span>{' '}
+              1) Tap your name → 2) Tap a job → 3) Do it → 4) Mark it done.
+            </p>
+            <div className="flex flex-wrap gap-2 shrink-0 lg:justify-end">
               <button
                 onClick={() => householdId && loadData(householdId)}
                 disabled={actionLoading}
