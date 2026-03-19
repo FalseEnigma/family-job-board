@@ -108,7 +108,7 @@ function ParentPageContent() {
   const [pinError, setPinError] = useState<string | null>(null)
 
   // Tab navigation (must be before any early returns to satisfy Rules of Hooks)
-  type TabId = 'dashboard' | 'inbox' | 'kids' | 'jobs' | 'rewards' | 'history'
+  type TabId = 'dashboard' | 'inbox' | 'kids' | 'jobs' | 'rewards' | 'history' | 'settings'
   const [activeTab, setActiveTab] = useState<TabId>('dashboard')
 
   const resetTemplateForm = () => {
@@ -1256,7 +1256,7 @@ function ParentPageContent() {
           <div className="mt-3 text-[11px] text-slate-400">
             {householdPin
               ? 'Using this household\'s PIN.'
-              : 'Using default PIN (set in Settings → Household).'}
+              : 'Using default PIN (set in Settings tab).'}
           </div>
         </div>
       </div>
@@ -1275,6 +1275,7 @@ function ParentPageContent() {
     { id: 'jobs', label: 'Jobs' },
     { id: 'rewards', label: 'Rewards' },
     { id: 'history', label: 'History' },
+    { id: 'settings', label: 'Settings' },
   ]
 
   return (
@@ -1548,34 +1549,6 @@ function ParentPageContent() {
       {activeTab === 'kids' && (
       <div className="space-y-6 max-w-3xl">
         <div className="space-y-4">
-          {/* Household settings - Parent PIN */}
-          <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
-            <h2 className="text-lg font-bold text-[#333333] mb-4">Household settings</h2>
-            <p className="text-sm text-[#666666] mb-3">
-              Set a PIN for this family only. Parents use it to unlock the dashboard.
-              Leave blank to use the default PIN.
-            </p>
-            <form onSubmit={handleSaveHouseholdPin} className="flex flex-wrap gap-2 items-end">
-              <div className="flex flex-col">
-                <label className="text-sm text-slate-600 mb-1">Parent PIN</label>
-                <input
-                  type="password"
-                  className="border border-slate-200 rounded-md px-3 py-2 w-32"
-                  value={newHouseholdPin}
-                  onChange={e => setNewHouseholdPin(e.target.value)}
-                  placeholder={householdPin ? '••••' : 'Not set'}
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={pinSaveStatus === 'saving'}
-                className="bg-ease-teal text-white rounded-md px-4 py-2 font-semibold hover:bg-ease-teal-hover disabled:opacity-50"
-              >
-                {pinSaveStatus === 'saving' ? 'Saving...' : pinSaveStatus === 'saved' ? 'Saved' : 'Save PIN'}
-              </button>
-            </form>
-          </section>
-
           {/* Add Kid */}
           <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
             <h2 className="text-lg font-bold text-[#333333] mb-4">Add Kid</h2>
@@ -1743,19 +1716,7 @@ function ParentPageContent() {
       {activeTab === 'rewards' && (
       <div className="space-y-6 max-w-3xl">
           <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold">Reward catalog</h2>
-              <label className="flex items-center gap-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={!!settings?.show_rewards_on_board}
-                  onChange={e =>
-                    handleToggleRewardsVisible(e.target.checked)
-                  }
-                />
-                Show on kid board
-              </label>
-            </div>
+            <h2 className="text-lg font-semibold mb-3">Reward catalog</h2>
 
             {/* Add reward */}
             <form
@@ -2328,6 +2289,69 @@ function ParentPageContent() {
             )}
           </section>
         </div>
+      </div>
+      )}
+
+      {/* Tab: Settings */}
+      {activeTab === 'settings' && (
+      <div className="space-y-6 max-w-2xl">
+        <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
+          <h2 className="text-lg font-bold text-[#333333] mb-4">Parent PIN</h2>
+          <p className="text-sm text-[#666666] mb-3">
+            Set a PIN for this family only. Parents use it to unlock the dashboard.
+            Leave blank to use the default PIN.
+          </p>
+          <form onSubmit={handleSaveHouseholdPin} className="flex flex-wrap gap-2 items-end">
+            <div className="flex flex-col">
+              <label className="text-sm text-slate-600 mb-1">Parent PIN</label>
+              <input
+                type="password"
+                className="border border-slate-200 rounded-md px-3 py-2 w-32"
+                value={newHouseholdPin}
+                onChange={e => setNewHouseholdPin(e.target.value)}
+                placeholder={householdPin ? '••••' : 'Not set'}
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={pinSaveStatus === 'saving'}
+              className="bg-ease-teal text-white rounded-md px-4 py-2 font-semibold hover:bg-ease-teal-hover disabled:opacity-50"
+            >
+              {pinSaveStatus === 'saving' ? 'Saving...' : pinSaveStatus === 'saved' ? 'Saved' : 'Save PIN'}
+            </button>
+          </form>
+        </section>
+
+        <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
+          <h2 className="text-lg font-bold text-[#333333] mb-4">Kid board</h2>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!settings?.show_rewards_on_board}
+              onChange={e => handleToggleRewardsVisible(e.target.checked)}
+              className="rounded border-slate-300"
+            />
+            <div>
+              <span className="text-sm font-medium text-[#333333]">Show rewards on kid board</span>
+              <p className="text-xs text-[#666666] mt-0.5">
+                When on, kids can see and request rewards. When off, rewards are hidden.
+              </p>
+            </div>
+          </label>
+        </section>
+
+        <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
+          <h2 className="text-lg font-bold text-[#333333] mb-2">Household</h2>
+          <p className="text-sm text-[#666666]">
+            {householdName || 'Loading...'}
+            {householdCode && (
+              <> • Board code: <code className="rounded bg-slate-100 px-1 py-0.5 text-ease-teal font-mono">{householdCode}</code></>
+            )}
+          </p>
+          <p className="text-xs text-[#666666] mt-2">
+            Share the board code with your family so they can access the kid board.
+          </p>
+        </section>
       </div>
       )}
 
