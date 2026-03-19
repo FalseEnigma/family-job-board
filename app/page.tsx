@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 
 const BOARD_CODE_KEY = 'family_job_board_code'
@@ -64,13 +65,17 @@ export default function Home() {
     <div className="min-h-screen bg-ease-bg text-[#333333]">
       <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:py-14">
         <div className="text-center sm:text-left mb-8 sm:mb-10">
-          <p className="text-4xl sm:text-5xl mb-3" aria-hidden>
-            📋
-          </p>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#333333]">
-            ScoreChore
+          <h1 className="m-0 mb-4 flex justify-center sm:justify-start">
+            <Image
+              src="/scorechore-logo.png"
+              alt="ScoreChore"
+              width={340}
+              height={88}
+              priority
+              className="h-14 sm:h-16 w-auto max-w-full"
+            />
           </h1>
-          <p className="mt-3 text-lg text-[#666666] max-w-2xl mx-auto sm:mx-0">
+          <p className="mt-1 text-lg text-[#666666] max-w-2xl mx-auto sm:mx-0">
             Claim chores, earn points, and pick rewards — all in one place for
             your family.
           </p>

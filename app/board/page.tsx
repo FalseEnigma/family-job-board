@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useRef, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
@@ -711,8 +712,17 @@ function BoardPageContent() {
           >
             {activeJobs.length === 0 ? '😴' : recentlyEarnedPoints ? '🎉' : '😊'}
           </span>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#333333]">ScoreChore</h1>
+          <div className="min-w-0">
+            <h1 className="m-0 mb-1">
+              <Image
+                src="/scorechore-logo.png"
+                alt="ScoreChore"
+                width={280}
+                height={72}
+                priority
+                className="h-9 sm:h-10 w-auto max-w-[min(100%,260px)]"
+              />
+            </h1>
           <div className="text-xs text-[#666666] mt-1">
             Household: {householdName || 'Loading...'}{' '}
             {householdCode ? `(code: ${householdCode})` : ''}
