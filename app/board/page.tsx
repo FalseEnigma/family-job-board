@@ -1,7 +1,6 @@
 'use client'
 
 import { Suspense, useEffect, useRef, useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
@@ -13,6 +12,7 @@ import {
   InfoModal,
   type ModalVariant,
 } from '@/components/ModalDialogs'
+import { ScoreChoreLogo } from '@/components/ScoreChoreLogo'
 
 const ENCOURAGING_MESSAGES = [
   'Nice work!',
@@ -702,7 +702,7 @@ function BoardPageContent() {
     <div className="min-h-screen bg-ease-bg text-[#333333] flex flex-col">
       {/* Header - Ease-style clean */}
       <header className="px-4 py-4 sm:px-6 border-b border-slate-200/80 bg-white flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap gap-y-2">
           <span
             className="text-3xl sm:text-4xl transition-transform duration-300"
             style={{
@@ -713,15 +713,11 @@ function BoardPageContent() {
             {activeJobs.length === 0 ? '😴' : recentlyEarnedPoints ? '🎉' : '😊'}
           </span>
           <div className="min-w-0">
-            <h1 className="m-0 mb-1">
-              <Image
-                src="/scorechore-logo.png"
-                alt="ScoreChore"
-                width={280}
-                height={72}
-                priority
-                className="h-9 sm:h-10 w-auto max-w-[min(100%,260px)]"
-              />
+            <h1 className="m-0 mb-1.5">
+              <span className="sr-only">ScoreChore</span>
+              <span aria-hidden className="block">
+                <ScoreChoreLogo variant="header" />
+              </span>
             </h1>
           <div className="text-xs text-[#666666] mt-1">
             Household: {householdName || 'Loading...'}{' '}

@@ -1,7 +1,6 @@
 'use client'
 
 import { Suspense, useEffect, useRef, useState, FormEvent } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { supabase } from '../../lib/supabaseClient'
 import { useSearchParams } from 'next/navigation'
@@ -26,6 +25,7 @@ import {
   InfoModal,
   type ModalVariant,
 } from '@/components/ModalDialogs'
+import { ScoreChoreLogo } from '@/components/ScoreChoreLogo'
 
 const PARENT_PIN =
   process.env.NEXT_PUBLIC_PARENT_PIN &&
@@ -1531,15 +1531,17 @@ function ParentPageContent() {
       <header className="sticky top-0 z-10 bg-white border-b border-slate-200/80 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-start gap-3 min-w-0">
-              <Image
-                src="/scorechore-logo.png"
-                alt="ScoreChore"
-                width={200}
-                height={52}
-                className="h-8 sm:h-9 w-auto shrink-0 mt-0.5"
-              />
-              <div className="min-w-0">
+            <div className="flex items-start gap-4 sm:gap-5 min-w-0">
+              <div
+                className="shrink-0 pt-0.5 drop-shadow-[0_1px_1px_rgba(0,0,0,0.05)]"
+                role="img"
+                aria-label="ScoreChore"
+              >
+                <span aria-hidden="true">
+                  <ScoreChoreLogo variant="nav" />
+                </span>
+              </div>
+              <div className="min-w-0 border-l border-slate-200/90 pl-4 sm:pl-5">
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#333333]">
                   Parent Dashboard
                 </h1>
