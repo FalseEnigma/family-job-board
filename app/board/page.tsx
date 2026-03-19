@@ -49,6 +49,62 @@ function ConfettiOverlay() {
   )
 }
 
+function ConfirmModal({
+  message,
+  confirmLabel = 'Yes',
+  cancelLabel = 'Cancel',
+  onConfirm,
+  onCancel,
+  loading = false,
+}: {
+  message: string
+  confirmLabel?: string
+  cancelLabel?: string
+  onConfirm: () => void | Promise<void>
+  onCancel: () => void
+  loading?: boolean
+}) {
+  const handleConfirm = async () => {
+    await onConfirm()
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30"
+      onClick={onCancel}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => e.key === 'Escape' && onCancel()}
+      aria-label="Dismiss"
+    >
+      <div
+        className="bg-white rounded-xl shadow-xl border-2 border-slate-200/80 p-6 max-w-sm w-full animate-[bounce-in_0.3s_ease-out]"
+        onClick={e => e.stopPropagation()}
+      >
+        <p className="text-[#333333] text-base mb-6">{message}</p>
+        <div className="flex gap-3 justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={loading}
+            className="min-h-[44px] px-4 py-2 rounded-xl border-2 border-slate-200 text-[#333333] font-medium hover:bg-slate-50 active:scale-[0.98] transition-transform disabled:opacity-50"
+          >
+            {cancelLabel}
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={loading}
+            className="min-h-[44px] px-4 py-2 rounded-xl bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover active:scale-[0.98] transition-transform disabled:opacity-50"
+          >
+            {loading ? '...' : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function BoardLoadingFallback() {
   return (
     <div className="flex items-center justify-center h-screen bg-ease-bg text-[#333333]">
@@ -75,6 +131,12 @@ function BoardPageContent() {
   const [selectedKidId, setSelectedKidId] = useState<string | null>(null)
   const [rewardModalOpen, setRewardModalOpen] = useState(false)
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false)
+  const [confirmModal, setConfirmModal] = useState<{
+    message: string
+    confirmLabel?: string
+    cancelLabel?: string
+    onConfirm: () => void | Promise<void>
+  } | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [celebration, setCelebration] = useState<{
     message: string
@@ -293,42 +355,49 @@ function BoardPageContent() {
       return
     }
 
-    const confirmed = window.confirm(
-      `Do you want to claim "${job.name}" for ${job.base_points} points?`
-    )
-    if (!confirmed) return
+    setConfirmModal({
+      message: `Do you want to claim "${job.name}" for ${job.base_points} points?`,
+      confirmLabel: 'Yes, claim it',
+      onConfirm: async () => {
+        setConfirmModal(null)
+        setActionLoading(true)
+        const { error } = await supabase
+          .from('jobs')
+          .update({
+            is_claimed: true,
+            claimed_by_kid_id: kid.id
+          })
+          .eq('id', job.id)
+          .eq('household_id', activeHouseholdId)
 
-    setActionLoading(true)
-    const { error } = await supabase
-      .from('jobs')
-      .update({
-        is_claimed: true,
-        claimed_by_kid_id: kid.id
-      })
-      .eq('id', job.id)
-      .eq('household_id', activeHouseholdId)
+        if (error) {
+          setFriendlyError(error.message)
+          setActionLoading(false)
+          return
+        }
 
-    if (error) {
-      setFriendlyError(error.message)
-      setActionLoading(false)
-      return
-    }
-
-    // clear selection so they must tap name again for next action
-    setSelectedKidId(null)
-    await loadData(activeHouseholdId)
-    setActionLoading(false)
+        setSelectedKidId(null)
+        await loadData(activeHouseholdId)
+        setActionLoading(false)
+      },
+    })
   }
 
   const handleCompleteJob = async (job: Job, kid: Kid) => {
     const activeHouseholdId = requireHouseholdId()
     if (!activeHouseholdId) return
 
-    const confirmed = window.confirm(
-      `Mark "${job.name}" as done for ${kid.name}?`
-    )
-    if (!confirmed) return
+    setConfirmModal({
+      message: `Mark "${job.name}" as done for ${kid.name}?`,
+      confirmLabel: 'Yes, mark done',
+      onConfirm: async () => {
+        setConfirmModal(null)
+        await doCompleteJob(job, kid, activeHouseholdId)
+      },
+    })
+  }
 
+  const doCompleteJob = async (job: Job, kid: Kid, activeHouseholdId: string) => {
     setActionLoading(true)
     if (job.requires_approval) {
       // create pending log, remove from board
@@ -465,30 +534,32 @@ function BoardPageContent() {
       return
     }
 
-    const confirmed = window.confirm(
-      `Put "${job.name}" back so someone else can claim it?`
-    )
-    if (!confirmed) return
+    setConfirmModal({
+      message: `Put "${job.name}" back so someone else can claim it?`,
+      confirmLabel: 'Yes, put it back',
+      onConfirm: async () => {
+        setConfirmModal(null)
+        setActionLoading(true)
+        const { error } = await supabase
+          .from('jobs')
+          .update({
+            is_claimed: false,
+            claimed_by_kid_id: null
+          })
+          .eq('id', job.id)
+          .eq('household_id', activeHouseholdId)
 
-    setActionLoading(true)
-    const { error } = await supabase
-      .from('jobs')
-      .update({
-        is_claimed: false,
-        claimed_by_kid_id: null
-      })
-      .eq('id', job.id)
-      .eq('household_id', activeHouseholdId)
+        if (error) {
+          setFriendlyError(error.message)
+          setActionLoading(false)
+          return
+        }
 
-    if (error) {
-      setFriendlyError(error.message)
-      setActionLoading(false)
-      return
-    }
-
-    setSelectedKidId(null)
-    await loadData(activeHouseholdId)
-    setActionLoading(false)
+        setSelectedKidId(null)
+        await loadData(activeHouseholdId)
+        setActionLoading(false)
+      },
+    })
   }
 
   const handleRequestNewJob = async () => {
@@ -497,28 +568,30 @@ function BoardPageContent() {
     if (!activeHouseholdId) return
     if (!ensureKidSelected() || !selectedKid) return
 
-    const confirmed = window.confirm(
-      `${selectedKid.name}, do you want to tell your parents you're ready for a new job?`
-    )
-    if (!confirmed) return
+    setConfirmModal({
+      message: `${selectedKid.name}, do you want to tell your parents you're ready for a new job?`,
+      confirmLabel: 'Yes, send request',
+      onConfirm: async () => {
+        setConfirmModal(null)
+        setActionLoading(true)
+        const { error } = await supabase.from('job_requests').insert({
+          kid_id: selectedKid.id,
+          message: null,
+          handled: false,
+          household_id: activeHouseholdId
+        })
 
-    setActionLoading(true)
-    const { error } = await supabase.from('job_requests').insert({
-      kid_id: selectedKid.id,
-      message: null,
-      handled: false,
-      household_id: activeHouseholdId
+        if (error) {
+          setFriendlyError(error.message)
+          setActionLoading(false)
+          return
+        }
+
+        setCelebration({ message: 'Request sent to parent!', showConfetti: false })
+        setSelectedKidId(null)
+        setActionLoading(false)
+      },
     })
-
-    if (error) {
-      setFriendlyError(error.message)
-      setActionLoading(false)
-      return
-    }
-
-    window.alert('Request sent to parent.')
-    setSelectedKidId(null)
-    setActionLoading(false)
   }
 
   const handleOpenRewardModal = () => {
@@ -558,30 +631,32 @@ function BoardPageContent() {
     if (!activeHouseholdId) return
     if (!selectedKid) return
 
-    const confirmed = window.confirm(
-      `${selectedKid.name}, do you want to request "${reward.name}" for ${reward.cost_points} points?\n\nYour parent will decide if it is approved.`
-    )
-    if (!confirmed) return
+    setConfirmModal({
+      message: `${selectedKid.name}, do you want to request "${reward.name}" for ${reward.cost_points} points? Your parent will decide if it is approved.`,
+      confirmLabel: 'Yes, request it',
+      onConfirm: async () => {
+        setConfirmModal(null)
+        setActionLoading(true)
+        const { error } = await supabase.from('reward_requests').insert({
+          kid_id: selectedKid.id,
+          reward_id: reward.id,
+          status: 'PENDING',
+          note: null,
+          household_id: activeHouseholdId
+        })
 
-    setActionLoading(true)
-    const { error } = await supabase.from('reward_requests').insert({
-      kid_id: selectedKid.id,
-      reward_id: reward.id,
-      status: 'PENDING',
-      note: null,
-      household_id: activeHouseholdId
+        if (error) {
+          setFriendlyError(error.message)
+          setActionLoading(false)
+          return
+        }
+
+        setCelebration({ message: 'Reward request sent to parent!', showConfetti: false })
+        setRewardModalOpen(false)
+        setSelectedKidId(null)
+        setActionLoading(false)
+      },
     })
-
-    if (error) {
-      setFriendlyError(error.message)
-      setActionLoading(false)
-      return
-    }
-
-    window.alert('Reward request sent to parent.')
-    setRewardModalOpen(false)
-    setSelectedKidId(null)
-    setActionLoading(false)
   }
 
   const activeJobs = jobs.filter(j => j.is_active)
@@ -737,6 +812,11 @@ function BoardPageContent() {
                   ? `Claimed by ${claimer ? claimer.name : 'someone'}`
                   : 'Available'
 
+                const claimerColor =
+                  claimer && claimer.color?.startsWith('#')
+                    ? claimer.color
+                    : '#94a3b8'
+
                 return (
                   <div
                     key={job.id}
@@ -746,12 +826,18 @@ function BoardPageContent() {
                     className={`flex flex-col items-stretch text-left rounded-xl px-5 py-4 border-2 min-h-[100px] transition-all duration-200 active:scale-[0.98] ${
                       actionLoading ? 'cursor-wait opacity-75' : 'cursor-pointer'
                     } ${
-                      claimedByYou
-                        ? 'border-ease-teal bg-teal-50/80'
-                        : job.is_claimed
-                        ? 'border-slate-200 bg-slate-50/50'
+                      job.is_claimed
+                        ? ''
                         : 'border-slate-200 bg-white hover:border-ease-teal/50 hover:bg-teal-50/30'
                     }`}
+                    style={
+                      job.is_claimed
+                        ? {
+                            backgroundColor: `${claimerColor}22`,
+                            borderColor: claimerColor,
+                          }
+                        : undefined
+                    }
                   >
                     <div className="flex justify-between items-start gap-2">
                       <div className="flex-1">
@@ -974,6 +1060,17 @@ function BoardPageContent() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Confirm modal */}
+      {confirmModal && (
+        <ConfirmModal
+          message={confirmModal.message}
+          confirmLabel={confirmModal.confirmLabel}
+          cancelLabel={confirmModal.cancelLabel}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+        />
       )}
 
       {/* Avatar picker modal */}
