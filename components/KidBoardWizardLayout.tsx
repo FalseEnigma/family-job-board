@@ -94,9 +94,9 @@ export function KidBoardWizardLayout({
             <button
               type="button"
               onClick={() => onStepChange(1)}
-              className="min-h-[44px] px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:text-ease-teal hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-colors"
+              className="min-h-[48px] px-8 rounded-xl bg-ease-teal text-white font-bold text-base hover:bg-ease-teal-hover active:scale-[0.98] transition-transform shadow-sm"
             >
-              Switch who I am
+              Start over
             </button>
           )}
         </div>

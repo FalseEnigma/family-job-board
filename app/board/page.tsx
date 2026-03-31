@@ -263,6 +263,13 @@ function BoardPageContent() {
     }
   }, [useWizardLayout, selectedKidId, wizardStep])
 
+  const handleWizardStepChange = (s: WizardStep) => {
+    if (useWizardLayout && wizardStep === 3 && s === 1) {
+      setSelectedKidId(null)
+    }
+    setWizardStep(s)
+  }
+
   const requireHouseholdId = () => {
     if (!householdId) {
       setError('Household not ready yet.')
@@ -276,6 +283,9 @@ function BoardPageContent() {
       setSelectedKidId(null)
     } else {
       setSelectedKidId(kidId)
+      if (useWizardLayout && wizardStep === 1) {
+        setWizardStep(2)
+      }
     }
   }
 
@@ -1015,8 +1025,8 @@ function BoardPageContent() {
               Who are you?
             </h2>
             <p className="text-sm text-slate-600 mb-4">
-              Tap your name to play. You can change it later with{' '}
-              <strong className="text-slate-700">Switch who I am</strong>.
+              Tap your name to play. On the last screen, tap{' '}
+              <strong className="text-slate-700">Start over</strong> to pick someone else.
             </p>
             {selectedKid && (
               <p className="text-base text-ease-teal font-semibold mb-3 text-center">
@@ -1276,7 +1286,7 @@ function BoardPageContent() {
           return (
             <KidBoardWizardLayout
               step={wizardStep}
-              onStepChange={setWizardStep}
+              onStepChange={handleWizardStepChange}
               canContinueFromStep1={!!selectedKid}
               step1={<div className={wizardShell}>{kidsInner}</div>}
               step2={
