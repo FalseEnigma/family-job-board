@@ -63,6 +63,7 @@ create table if not exists public.app_settings (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null unique references public.households(id) on delete cascade,
   show_rewards_on_board boolean not null default true,
+  kid_board_wizard_mode boolean not null default true,
   created_at timestamptz not null default now()
 );
 
@@ -244,6 +245,6 @@ values (
 )
 on conflict do nothing;
 
-insert into public.app_settings (household_id, show_rewards_on_board)
-values ('7591ea9c-90f5-4d7f-9da2-aee44dd58039'::uuid, true)
+insert into public.app_settings (household_id, show_rewards_on_board, kid_board_wizard_mode)
+values ('7591ea9c-90f5-4d7f-9da2-aee44dd58039'::uuid, true, true)
 on conflict (household_id) do nothing;

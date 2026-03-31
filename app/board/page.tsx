@@ -13,6 +13,10 @@ import {
   type ModalVariant,
 } from '@/components/ModalDialogs'
 import { ScoreChoreLogo } from '@/components/ScoreChoreLogo'
+import {
+  KidBoardWizardLayout,
+  type WizardStep,
+} from '@/components/KidBoardWizardLayout'
 
 const ENCOURAGING_MESSAGES = [
   'Nice work!',
@@ -101,6 +105,7 @@ function BoardPageContent() {
     showConfetti?: boolean
   } | null>(null)
   const [recentlyEarnedPoints, setRecentlyEarnedPoints] = useState(false)
+  const [wizardStep, setWizardStep] = useState<WizardStep>(1)
 
   const searchParams = useSearchParams()
   const householdParam = searchParams.get('household')
@@ -186,7 +191,7 @@ function BoardPageContent() {
           .order('created_at', { ascending: true }),
         supabase
           .from('app_settings')
-          .select('id, show_rewards_on_board, household_id')
+          .select('id, show_rewards_on_board, kid_board_wizard_mode, household_id')
           .eq('household_id', activeHouseholdId)
           .limit(1),
         supabase
@@ -245,6 +250,18 @@ function BoardPageContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [householdId])
+
+  useEffect(() => {
+    setWizardStep(1)
+  }, [householdId])
+
+  const useWizardLayout = settings?.kid_board_wizard_mode !== false
+
+  useEffect(() => {
+    if (useWizardLayout && !selectedKidId && wizardStep > 1) {
+      setWizardStep(1)
+    }
+  }, [useWizardLayout, selectedKidId, wizardStep])
 
   const requireHouseholdId = () => {
     if (!householdId) {
@@ -775,182 +792,287 @@ function BoardPageContent() {
         </div>
       )}
 
-      {/* Main layout */}
-      <main className="flex-1 grid gap-4 p-4 sm:p-6 lg:grid-cols-[2fr,1fr] max-w-7xl mx-auto w-full">
-        {/* Left: Jobs */}
-        <section className="bg-white rounded-md p-4 sm:p-5 flex flex-col border border-slate-200/60 shadow-sm">
-          <div className="mb-4 flex gap-3 items-start lg:grid lg:grid-cols-[auto_auto_minmax(0,1fr)_auto] lg:items-center lg:gap-4">
-            <span
-              className="text-3xl sm:text-4xl shrink-0 pt-0.5 transition-transform duration-300 lg:col-start-1 lg:row-start-1 lg:pt-0"
-              style={moodEmojiStyle}
-              aria-hidden
-            >
-              {moodEmoji}
-            </span>
-            <div className="flex-1 min-w-0 flex flex-col gap-2 lg:contents">
-              <div className="flex flex-wrap items-center justify-between gap-2 lg:contents">
-                <h2 className="text-lg font-bold text-[#333333] shrink-0 lg:col-start-2 lg:row-start-1">
-                  Job Board
-                </h2>
-                <div className="flex flex-wrap gap-2 shrink-0 lg:col-start-4 lg:row-start-1">
-                  <button
-                    onClick={() => householdId && loadData(householdId)}
-                    disabled={actionLoading}
-                    className="min-h-[44px] px-4 py-3 rounded-xl border-2 border-slate-200 text-[#333333] font-medium hover:bg-slate-50 active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Refresh jobs"
-                  >
-                    ↻ Refresh
-                  </button>
-                  <button
-                    onClick={handleRequestNewJob}
-                    disabled={actionLoading}
-                    className="min-h-[44px] px-5 py-3 rounded-xl bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
-                  >
-                    Request a new job
-                  </button>
-                </div>
-              </div>
-              <p className="text-[11px] sm:text-xs md:text-sm text-slate-600 leading-snug lg:col-start-3 lg:row-start-1 lg:min-w-0">
-                <span className="font-semibold text-slate-700">How it works:</span>{' '}
-                1) Tap your name → 2) Tap a job → 3) Do it → 4) Mark it done.
-              </p>
-            </div>
-          </div>
+      {(() => {
+        const wizardShell =
+          'rounded-2xl border-2 border-slate-200/80 bg-white p-5 sm:p-6 shadow-md flex flex-col min-h-0'
 
-          {activeJobs.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/80 px-6 py-10 text-center">
-              <span className="text-4xl" aria-hidden>
-                📭
+        const jobsInner = (
+          <>
+            <div className="mb-4 flex gap-3 items-start lg:grid lg:grid-cols-[auto_auto_minmax(0,1fr)_auto] lg:items-center lg:gap-4">
+              <span
+                className="text-3xl sm:text-4xl shrink-0 pt-0.5 transition-transform duration-300 lg:col-start-1 lg:row-start-1 lg:pt-0"
+                style={moodEmojiStyle}
+                aria-hidden
+              >
+                {moodEmoji}
               </span>
-              <p className="text-base font-semibold text-slate-700 max-w-sm">
-                No jobs on the board yet
-              </p>
-              <p className="text-sm text-slate-600 max-w-sm leading-relaxed">
-                Ask a parent to post chores, or tap{' '}
-                <strong className="text-slate-700">Request a new job</strong> to
-                suggest one you&apos;d like to do.
-              </p>
+              <div className="flex-1 min-w-0 flex flex-col gap-2 lg:contents">
+                <div className="flex flex-wrap items-center justify-between gap-2 lg:contents">
+                  <h2 className="text-lg font-bold text-[#333333] shrink-0 lg:col-start-2 lg:row-start-1">
+                    Job Board
+                  </h2>
+                  <div className="flex flex-wrap gap-2 shrink-0 lg:col-start-4 lg:row-start-1">
+                    <button
+                      type="button"
+                      onClick={() => householdId && loadData(householdId)}
+                      disabled={actionLoading}
+                      className="min-h-[44px] px-4 py-3 rounded-xl border-2 border-slate-200 text-[#333333] font-medium hover:bg-slate-50 active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Refresh jobs"
+                    >
+                      ↻ Refresh
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRequestNewJob}
+                      disabled={actionLoading}
+                      className="min-h-[44px] px-5 py-3 rounded-xl bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                    >
+                      Request a new job
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[11px] sm:text-xs md:text-sm text-slate-600 leading-snug lg:col-start-3 lg:row-start-1 lg:min-w-0">
+                  <span className="font-semibold text-slate-700">How it works:</span>{' '}
+                  1) Tap your name → 2) Tap a job → 3) Do it → 4) Mark it done.
+                </p>
+              </div>
             </div>
-          ) : (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {activeJobs.map(job => {
-                const claimer =
-                  job.is_claimed && job.claimed_by_kid_id
-                    ? kids.find(k => k.id === job.claimed_by_kid_id)
-                    : null
 
-                const claimedByYou =
-                  job.is_claimed &&
-                  selectedKid &&
-                  job.claimed_by_kid_id === selectedKid.id
+            {activeJobs.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/80 px-6 py-10 text-center">
+                <span className="text-4xl" aria-hidden>
+                  📭
+                </span>
+                <p className="text-base font-semibold text-slate-700 max-w-sm">
+                  No jobs on the board yet
+                </p>
+                <p className="text-sm text-slate-600 max-w-sm leading-relaxed">
+                  Ask a parent to post chores, or tap{' '}
+                  <strong className="text-slate-700">Request a new job</strong> to
+                  suggest one you&apos;d like to do.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {activeJobs.map(job => {
+                  const claimer =
+                    job.is_claimed && job.claimed_by_kid_id
+                      ? kids.find(k => k.id === job.claimed_by_kid_id)
+                      : null
 
-                const statusLabel = job.is_claimed
-                  ? `Claimed by ${claimer ? claimer.name : 'someone'}`
-                  : 'Available'
+                  const claimedByYou =
+                    job.is_claimed &&
+                    selectedKid &&
+                    job.claimed_by_kid_id === selectedKid.id
 
-                const claimerColor =
-                  claimer && claimer.color?.startsWith('#')
-                    ? claimer.color
-                    : '#94a3b8'
+                  const statusLabel = job.is_claimed
+                    ? `Claimed by ${claimer ? claimer.name : 'someone'}`
+                    : 'Available'
 
-                return (
-                  <div
-                    key={job.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => !actionLoading && handleJobTap(job)}
-                    className={`flex flex-col items-stretch text-left rounded-xl px-5 py-4 border-2 min-h-[100px] transition-all duration-200 active:scale-[0.98] ${
-                      actionLoading ? 'cursor-wait opacity-75' : 'cursor-pointer'
-                    } ${
-                      job.is_claimed
-                        ? ''
-                        : 'border-slate-200 bg-white hover:border-ease-teal/50 hover:bg-teal-50/30'
-                    }`}
-                    style={
-                      job.is_claimed
-                        ? {
-                            backgroundColor: `${claimerColor}22`,
-                            borderColor: claimerColor,
-                          }
-                        : undefined
-                    }
-                  >
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="flex-1">
-                        <div className="text-base font-semibold leading-tight">
-                          {job.name}
+                  const claimerColor =
+                    claimer && claimer.color?.startsWith('#')
+                      ? claimer.color
+                      : '#94a3b8'
+
+                  return (
+                    <div
+                      key={job.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => !actionLoading && handleJobTap(job)}
+                      className={`flex flex-col items-stretch text-left rounded-xl px-5 py-4 border-2 min-h-[100px] transition-all duration-200 active:scale-[0.98] ${
+                        actionLoading ? 'cursor-wait opacity-75' : 'cursor-pointer'
+                      } ${
+                        job.is_claimed
+                          ? ''
+                          : 'border-slate-200 bg-white hover:border-ease-teal/50 hover:bg-teal-50/30'
+                      }`}
+                      style={
+                        job.is_claimed
+                          ? {
+                              backgroundColor: `${claimerColor}22`,
+                              borderColor: claimerColor,
+                            }
+                          : undefined
+                      }
+                    >
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="flex-1">
+                          <div className="text-base font-semibold leading-tight">
+                            {job.name}
+                          </div>
+                          {job.description && (
+                            <div className="text-xs text-[#666666] mt-1 line-clamp-2">
+                              {job.description}
+                            </div>
+                          )}
                         </div>
-                        {job.description && (
-                          <div className="text-xs text-[#666666] mt-1 line-clamp-2">
-                            {job.description}
+                        <div className="text-right">
+                          <div className="text-xl font-bold">
+                            {job.base_points}
+                          </div>
+                          <div className="text-[11px] text-[#666666]">
+                            pts
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-2 flex justify-between items-center">
+                        <div className="flex flex-col">
+                          <span className="text-[11px] uppercase tracking-wide">
+                            {statusLabel}
+                          </span>
+                          {job.min_age !== null && (
+                            <span className="text-[11px] text-[#666666]">
+                              Ages {job.min_age}+
+                            </span>
+                          )}
+                          {job.requires_approval && (
+                            <span className="text-[11px] text-amber-600">
+                              Parent approval required for points
+                            </span>
+                          )}
+                        </div>
+
+                        {claimedByYou && selectedKid && (
+                          <div className="flex flex-col gap-1">
+                            <button
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={e => {
+                                e.stopPropagation()
+                                handleCompleteJob(job, selectedKid)
+                              }}
+                              className="min-h-[40px] text-sm px-4 py-2 rounded-lg bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover active:scale-[0.96] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                            >
+                              Mark done
+                            </button>
+                            <button
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={e => {
+                                e.stopPropagation()
+                                handleUnclaimJob(job)
+                              }}
+                              className="min-h-[36px] text-xs px-3 py-2 rounded-lg border-2 border-slate-300 text-[#666666] hover:bg-slate-100 active:scale-[0.96] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                            >
+                              Unclaim
+                            </button>
                           </div>
                         )}
                       </div>
-                      <div className="text-right">
-                        <div className="text-xl font-bold">
-                          {job.base_points}
-                        </div>
-                        <div className="text-[11px] text-[#666666]">
-                          pts
-                        </div>
-                      </div>
                     </div>
+                  )
+                })}
+              </div>
+            )}
+          </>
+        )
 
-                    <div className="mt-2 flex justify-between items-center">
-                      <div className="flex flex-col">
-                        <span className="text-[11px] uppercase tracking-wide">
-                          {statusLabel}
+        const kidsInner = (
+          <>
+            <h2 className="text-xl sm:text-2xl font-bold text-[#333333] mb-1">
+              Who are you?
+            </h2>
+            <p className="text-sm text-slate-600 mb-4">
+              Tap your name to play. You can change it later with{' '}
+              <strong className="text-slate-700">Switch who I am</strong>.
+            </p>
+            {selectedKid && (
+              <p className="text-base text-ease-teal font-semibold mb-3 text-center">
+                {[
+                  `Hey ${selectedKid.name}!`,
+                  `Ready to earn points, ${selectedKid.name}?`,
+                  `Let's go, ${selectedKid.name}!`,
+                ][selectedKid.id.charCodeAt(0) % 3]}
+              </p>
+            )}
+            {kids.length === 0 ? (
+              <div className="text-sm text-[#666666]">
+                No kids yet. A parent needs to add kids on the parent
+                page.
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-1">
+                {kids.map(kid => {
+                  const selected = selectedKidId === kid.id
+                  const rawColor = kid.color || '#94a3b8'
+                  const kidColor = rawColor.startsWith('#') ? rawColor : '#94a3b8'
+                  return (
+                    <div
+                      key={kid.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleSelectKid(kid.id)}
+                      onKeyDown={e => e.key === 'Enter' && handleSelectKid(kid.id)}
+                      className={`flex flex-col items-start rounded-xl px-4 py-4 min-h-[72px] text-left border-2 transition-all duration-200 active:scale-[0.98] cursor-pointer ${
+                        selected ? 'shadow-md' : 'hover:border-opacity-80'
+                      }`}
+                      style={{
+                        backgroundColor: selected ? `${kidColor}28` : `${kidColor}12`,
+                        borderColor: selected ? kidColor : `${kidColor}55`,
+                      }}
+                    >
+                      <div className="flex items-center gap-3 w-full">
+                        <div
+                          className="h-10 w-10 rounded-full border-2 flex items-center justify-center text-lg shrink-0"
+                          style={{
+                            backgroundColor: kidColor,
+                            borderColor: kidColor,
+                            color: '#fff',
+                            textShadow: kid.avatar ? 'none' : '0 1px 1px rgba(0,0,0,0.2)',
+                          }}
+                        >
+                          {kid.avatar || kid.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-base font-bold">{kid.name}</div>
+                          {kid.age !== null && (
+                            <div className="text-xs opacity-80">Age {kid.age}</div>
+                          )}
+                        </div>
+                        <span
+                          className="text-xs font-semibold px-2 py-0.5 rounded-full shrink-0"
+                          style={{ backgroundColor: `${kidColor}44`, color: kidColor }}
+                        >
+                          {kid.points_balance} pts
                         </span>
-                        {job.min_age !== null && (
-                          <span className="text-[11px] text-[#666666]">
-                            Ages {job.min_age}+
-                          </span>
-                        )}
-                        {job.requires_approval && (
-                          <span className="text-[11px] text-amber-600">
-                            Parent approval required for points
-                          </span>
-                        )}
-                      </div>
-
-                      {claimedByYou && selectedKid && (
-                        <div className="flex flex-col gap-1">
+                        <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                           <button
                             type="button"
-                            disabled={actionLoading}
                             onClick={e => {
                               e.stopPropagation()
-                              handleCompleteJob(job, selectedKid)
+                              setAvatarPickerForKidId(kid.id)
                             }}
-                            className="min-h-[40px] text-sm px-4 py-2 rounded-lg bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover active:scale-[0.96] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                            className="text-[10px] px-2 py-1 rounded-lg border border-slate-300 text-[#333333] hover:bg-white/50 font-medium"
                           >
-                            Mark done
+                            Avatar
                           </button>
                           <button
                             type="button"
-                            disabled={actionLoading}
                             onClick={e => {
                               e.stopPropagation()
-                              handleUnclaimJob(job)
+                              setColorPickerForKidId(kid.id)
                             }}
-                            className="min-h-[36px] text-xs px-3 py-2 rounded-lg border-2 border-slate-300 text-[#666666] hover:bg-slate-100 active:scale-[0.96] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                            className="text-[10px] px-2 py-1 rounded-lg border border-slate-300 text-[#333333] hover:bg-white/50 font-medium"
                           >
-                            Unclaim
+                            Color
                           </button>
                         </div>
-                      )}
+                      </div>
+                      <div className="mt-1 text-xs opacity-75">
+                        Lifetime: {kid.points_lifetime} pts
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </section>
+                  )
+                })}
+              </div>
+            )}
+          </>
+        )
 
-        {/* Right: Kids + points + rewards */}
-        <section className="space-y-4">
-          {/* Kids selector */}
-          <div className="bg-white rounded-md p-4 sm:p-5 border border-slate-200/60 shadow-sm">
+        const kidsInnerFullPage = (
+          <>
             <h2 className="text-lg font-bold text-[#333333] mb-3">Who are you?</h2>
             {selectedKid && (
               <p className="text-base text-ease-teal font-semibold mb-3 text-center">
@@ -1051,10 +1173,11 @@ function BoardPageContent() {
                 })}
               </div>
             )}
-          </div>
+          </>
+        )
 
-          {/* Rewards / points actions */}
-          <div className="bg-white rounded-md p-4 sm:p-5 border border-slate-200/60 shadow-sm">
+        const pointsInner = (
+          <>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-bold text-[#333333]">Points & rewards</h2>
             </div>
@@ -1070,6 +1193,7 @@ function BoardPageContent() {
 
                 {settings?.show_rewards_on_board ? (
                   <button
+                    type="button"
                     onClick={handleOpenRewardModal}
                     className="w-full min-h-[48px] rounded-xl bg-ease-teal text-white font-semibold px-5 py-4 text-base hover:bg-ease-teal-hover active:scale-[0.98] transition-transform"
                   >
@@ -1091,14 +1215,52 @@ function BoardPageContent() {
                   Pick who you are first
                 </p>
                 <p className="text-sm text-slate-600 mt-2 max-w-xs mx-auto leading-relaxed">
-                  Tap your card in <strong className="text-slate-700">Who are you?</strong>{' '}
-                  above — then your points and reward button will show up here.
+                  {useWizardLayout ? (
+                    <>
+                      Go back to <strong className="text-slate-700">step 1</strong> and tap
+                      your card.
+                    </>
+                  ) : (
+                    <>
+                      Tap your card in <strong className="text-slate-700">Who are you?</strong>{' '}
+                      above — then your points and reward button will show up here.
+                    </>
+                  )}
                 </p>
               </div>
             )}
-          </div>
-        </section>
-      </main>
+          </>
+        )
+
+        if (useWizardLayout) {
+          return (
+            <KidBoardWizardLayout
+              step={wizardStep}
+              onStepChange={setWizardStep}
+              canContinueFromStep1={!!selectedKid}
+              step1={<div className={wizardShell}>{kidsInner}</div>}
+              step2={<div className={`${wizardShell} flex-1`}>{jobsInner}</div>}
+              step3={<div className={wizardShell}>{pointsInner}</div>}
+            />
+          )
+        }
+
+        return (
+          <main className="flex-1 grid gap-4 p-4 sm:p-6 lg:grid-cols-[2fr,1fr] max-w-7xl mx-auto w-full">
+            <section className="bg-white rounded-md p-4 sm:p-5 flex flex-col border border-slate-200/60 shadow-sm">
+              {jobsInner}
+            </section>
+            <section className="space-y-4">
+              <div className="bg-white rounded-md p-4 sm:p-5 border border-slate-200/60 shadow-sm">
+                {kidsInnerFullPage}
+              </div>
+              <div className="bg-white rounded-md p-4 sm:p-5 border border-slate-200/60 shadow-sm">
+                {pointsInner}
+              </div>
+            </section>
+          </main>
+        )
+      })()}
 
       {/* Celebration overlay */}
       {celebration && (

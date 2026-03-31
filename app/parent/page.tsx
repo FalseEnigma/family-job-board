@@ -273,7 +273,7 @@ function ParentPageContent() {
         .limit(50),
       supabase
         .from('app_settings')
-        .select('id, show_rewards_on_board')
+        .select('id, show_rewards_on_board, kid_board_wizard_mode')
         .eq('household_id', activeHouseholdId)
         .limit(1),
       supabase
@@ -1273,9 +1273,45 @@ function ParentPageContent() {
         .from('app_settings')
         .insert({
           show_rewards_on_board: value,
+          kid_board_wizard_mode: true,
           household_id: activeHouseholdId
         })
-        .select('id, show_rewards_on_board')
+        .select('id, show_rewards_on_board, kid_board_wizard_mode')
+        .single()
+
+      if (error) {
+        setError(error.message)
+        return
+      }
+      setSettings(data)
+    }
+  }
+
+  const handleToggleKidBoardWizardMode = async (value: boolean) => {
+    setError(null)
+    const activeHouseholdId = requireHouseholdId()
+    if (!activeHouseholdId) return
+    if (settings && settings.id) {
+      const { error } = await supabase
+        .from('app_settings')
+        .update({ kid_board_wizard_mode: value })
+        .eq('id', settings.id)
+        .eq('household_id', activeHouseholdId)
+
+      if (error) {
+        setError(error.message)
+        return
+      }
+      setSettings({ ...settings, kid_board_wizard_mode: value })
+    } else {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .insert({
+          show_rewards_on_board: true,
+          kid_board_wizard_mode: value,
+          household_id: activeHouseholdId
+        })
+        .select('id, show_rewards_on_board, kid_board_wizard_mode')
         .single()
 
       if (error) {
@@ -2756,20 +2792,39 @@ function ParentPageContent() {
 
         <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">
           <h2 className="text-lg font-bold text-[#333333] mb-4">Kid board</h2>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={!!settings?.show_rewards_on_board}
-              onChange={e => handleToggleRewardsVisible(e.target.checked)}
-              className="rounded border-slate-300"
-            />
-            <div>
-              <span className="text-sm font-medium text-[#333333]">Show rewards on kid board</span>
-              <p className="text-xs text-[#666666] mt-0.5">
-                When on, kids can see and request rewards. When off, rewards are hidden.
-              </p>
-            </div>
-          </label>
+          <div className="space-y-5">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings?.kid_board_wizard_mode !== false}
+                onChange={e => handleToggleKidBoardWizardMode(e.target.checked)}
+                className="rounded border-slate-300"
+              />
+              <div>
+                <span className="text-sm font-medium text-[#333333]">
+                  Step-by-step cards (recommended)
+                </span>
+                <p className="text-xs text-[#666666] mt-0.5">
+                  Kids see one screen at a time: pick who they are, then jobs, then points.
+                  Turn off for the classic all-on-one-page board.
+                </p>
+              </div>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!settings?.show_rewards_on_board}
+                onChange={e => handleToggleRewardsVisible(e.target.checked)}
+                className="rounded border-slate-300"
+              />
+              <div>
+                <span className="text-sm font-medium text-[#333333]">Show rewards on kid board</span>
+                <p className="text-xs text-[#666666] mt-0.5">
+                  When on, kids can see and request rewards. When off, rewards are hidden.
+                </p>
+              </div>
+            </label>
+          </div>
         </section>
 
         <section className="bg-white rounded-md p-5 shadow-sm border border-slate-200/60">

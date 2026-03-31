@@ -41,6 +41,8 @@ export type Reward = {
 export type AppSettings = {
   id: string
   show_rewards_on_board: boolean
+  /** When not false (default), kid board uses step-by-step cards; when false, full-page layout */
+  kid_board_wizard_mode?: boolean
   household_id?: string
 }
 
