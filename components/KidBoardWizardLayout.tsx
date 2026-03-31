@@ -85,9 +85,14 @@ export function KidBoardWizardLayout({
             <button
               type="button"
               onClick={() => onStepChange(3)}
-              className="min-h-[48px] px-8 rounded-xl bg-ease-teal text-white font-bold text-base hover:bg-ease-teal-hover active:scale-[0.98] transition-transform shadow-sm"
+              aria-label="Go to points and spend them on rewards"
+              className="relative min-h-[52px] px-7 sm:px-9 rounded-2xl bg-gradient-to-br from-[#12d4d4] via-ease-teal to-[#007575] text-white font-extrabold text-base sm:text-lg tracking-tight shadow-[0_10px_28px_-6px_rgba(0,163,163,0.55)] ring-2 ring-white/30 hover:brightness-[1.06] hover:shadow-[0_14px_36px_-8px_rgba(0,163,163,0.6)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] active:brightness-100 transition-all duration-200"
             >
-              Next
+              <span className="flex items-center justify-center gap-2">
+                <span aria-hidden>✨</span>
+                Spend points
+                <span aria-hidden>→</span>
+              </span>
             </button>
           )}
           {step === 3 && (
