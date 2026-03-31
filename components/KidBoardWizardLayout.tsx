@@ -14,6 +14,7 @@ export function KidBoardWizardLayout({
   step,
   onStepChange,
   canContinueFromStep1,
+  step2CtaLabel,
   step1,
   step2,
   step3,
@@ -21,6 +22,7 @@ export function KidBoardWizardLayout({
   step: WizardStep
   onStepChange: (s: WizardStep) => void
   canContinueFromStep1: boolean
+  step2CtaLabel: string
   step1: ReactNode
   step2: ReactNode
   step3: ReactNode
@@ -50,6 +52,9 @@ export function KidBoardWizardLayout({
           </div>
         ))}
       </div>
+      <p className="text-center text-xs font-semibold text-slate-500 -mt-2 mb-4" aria-live="polite">
+        Step {step} of 3
+      </p>
 
       <div className="flex-1 min-h-0 w-full animate-[bounce-in_0.25s_ease-out]">
         {step === 1 && step1}
@@ -90,7 +95,7 @@ export function KidBoardWizardLayout({
             >
               <span className="flex items-center justify-center gap-2">
                 <span aria-hidden>✨</span>
-                Spend points
+                {step2CtaLabel}
                 <span aria-hidden>→</span>
               </span>
             </button>

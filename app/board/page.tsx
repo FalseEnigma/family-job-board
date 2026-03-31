@@ -113,6 +113,12 @@ function BoardPageContent() {
 
 
   const selectedKid = kids.find(k => k.id === selectedKidId) || null
+  const hasAffordableReward = !!(
+    selectedKid &&
+    settings?.show_rewards_on_board &&
+    rewards.some(reward => reward.is_active && reward.cost_points <= selectedKid.points_balance)
+  )
+  const step2CtaLabel = hasAffordableReward ? 'Spend points' : 'See my points'
   const mountedRef = useRef(true)
 
   const setFriendlyError = (msg: string | null) => {
@@ -1288,6 +1294,7 @@ function BoardPageContent() {
               step={wizardStep}
               onStepChange={handleWizardStepChange}
               canContinueFromStep1={!!selectedKid}
+              step2CtaLabel={step2CtaLabel}
               step1={<div className={wizardShell}>{kidsInner}</div>}
               step2={
                 <div className={`${wizardShell} flex-1 min-w-0 overflow-x-hidden`}>
