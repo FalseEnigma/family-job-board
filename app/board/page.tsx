@@ -796,47 +796,80 @@ function BoardPageContent() {
         const wizardShell =
           'rounded-2xl border-2 border-slate-200/80 bg-white p-5 sm:p-6 shadow-md flex flex-col min-h-0'
 
-        const jobsInner = (
+        const jobBoardActions = (
+          <div className="flex flex-wrap gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => householdId && loadData(householdId)}
+              disabled={actionLoading}
+              className="min-h-[44px] px-4 py-3 rounded-xl border-2 border-slate-200 text-[#333333] font-medium hover:bg-slate-50 active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Refresh jobs"
+            >
+              ↻ Refresh
+            </button>
+            <button
+              type="button"
+              onClick={handleRequestNewJob}
+              disabled={actionLoading}
+              className="min-h-[44px] px-5 py-3 rounded-xl bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+            >
+              Request a new job
+            </button>
+          </div>
+        )
+
+        const howItWorksP = (
+          <p className="text-sm text-slate-600 leading-relaxed w-full min-w-0">
+            <span className="font-semibold text-slate-700">How it works:</span>{' '}
+            1) Tap your name → 2) Tap a job → 3) Do it → 4) Mark it done.
+          </p>
+        )
+
+        /** Wizard card is narrow; viewport `lg:` must not apply or the header grid collapses. */
+        const makeJobsInner = (narrow: boolean) => (
           <>
-            <div className="mb-4 flex gap-3 items-start lg:grid lg:grid-cols-[auto_auto_minmax(0,1fr)_auto] lg:items-center lg:gap-4">
-              <span
-                className="text-3xl sm:text-4xl shrink-0 pt-0.5 transition-transform duration-300 lg:col-start-1 lg:row-start-1 lg:pt-0"
-                style={moodEmojiStyle}
-                aria-hidden
-              >
-                {moodEmoji}
-              </span>
-              <div className="flex-1 min-w-0 flex flex-col gap-2 lg:contents">
-                <div className="flex flex-wrap items-center justify-between gap-2 lg:contents">
-                  <h2 className="text-lg font-bold text-[#333333] shrink-0 lg:col-start-2 lg:row-start-1">
+            {narrow ? (
+              <div className="mb-4 flex flex-col gap-3 w-full min-w-0">
+                <div className="flex flex-wrap items-center gap-2 gap-y-2 w-full min-w-0">
+                  <span
+                    className="text-3xl sm:text-4xl shrink-0 pt-0.5 transition-transform duration-300"
+                    style={moodEmojiStyle}
+                    aria-hidden
+                  >
+                    {moodEmoji}
+                  </span>
+                  <h2 className="text-lg font-bold text-[#333333] shrink-0">
                     Job Board
                   </h2>
-                  <div className="flex flex-wrap gap-2 shrink-0 lg:col-start-4 lg:row-start-1">
-                    <button
-                      type="button"
-                      onClick={() => householdId && loadData(householdId)}
-                      disabled={actionLoading}
-                      className="min-h-[44px] px-4 py-3 rounded-xl border-2 border-slate-200 text-[#333333] font-medium hover:bg-slate-50 active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Refresh jobs"
-                    >
-                      ↻ Refresh
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleRequestNewJob}
-                      disabled={actionLoading}
-                      className="min-h-[44px] px-5 py-3 rounded-xl bg-ease-teal text-white font-semibold hover:bg-ease-teal-hover active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
-                    >
-                      Request a new job
-                    </button>
-                  </div>
+                  <div className="w-full min-w-0 sm:w-auto sm:ml-auto">{jobBoardActions}</div>
                 </div>
-                <p className="text-[11px] sm:text-xs md:text-sm text-slate-600 leading-snug lg:col-start-3 lg:row-start-1 lg:min-w-0">
-                  <span className="font-semibold text-slate-700">How it works:</span>{' '}
-                  1) Tap your name → 2) Tap a job → 3) Do it → 4) Mark it done.
-                </p>
+                {howItWorksP}
               </div>
-            </div>
+            ) : (
+              <div className="mb-4 flex gap-3 items-start lg:grid lg:grid-cols-[auto_auto_minmax(0,1fr)_auto] lg:items-center lg:gap-4">
+                <span
+                  className="text-3xl sm:text-4xl shrink-0 pt-0.5 transition-transform duration-300 lg:col-start-1 lg:row-start-1 lg:pt-0"
+                  style={moodEmojiStyle}
+                  aria-hidden
+                >
+                  {moodEmoji}
+                </span>
+                <div className="flex-1 min-w-0 flex flex-col gap-2 lg:contents">
+                  <div className="flex flex-wrap items-center justify-between gap-2 lg:contents">
+                    <h2 className="text-lg font-bold text-[#333333] shrink-0 lg:col-start-2 lg:row-start-1">
+                      Job Board
+                    </h2>
+                    <div className="flex flex-wrap gap-2 shrink-0 lg:col-start-4 lg:row-start-1">
+                      {jobBoardActions}
+                    </div>
+                  </div>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-slate-600 leading-snug lg:col-start-3 lg:row-start-1 lg:min-w-0">
+                    <span className="font-semibold text-slate-700">How it works:</span>{' '}
+                    1) Tap your name → 2) Tap a job → 3) Do it → 4) Mark it done.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {activeJobs.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/80 px-6 py-10 text-center">
@@ -853,7 +886,13 @@ function BoardPageContent() {
                 </p>
               </div>
             ) : (
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <div
+                className={
+                  narrow
+                    ? 'grid gap-3 grid-cols-1 w-full min-w-0'
+                    : 'grid gap-3 md:grid-cols-2 xl:grid-cols-3'
+                }
+              >
                 {activeJobs.map(job => {
                   const claimer =
                     job.is_claimed && job.claimed_by_kid_id
@@ -880,7 +919,7 @@ function BoardPageContent() {
                       role="button"
                       tabIndex={0}
                       onClick={() => !actionLoading && handleJobTap(job)}
-                      className={`flex flex-col items-stretch text-left rounded-xl px-5 py-4 border-2 min-h-[100px] transition-all duration-200 active:scale-[0.98] ${
+                      className={`flex flex-col items-stretch text-left rounded-xl px-5 py-4 border-2 min-h-[100px] transition-all duration-200 active:scale-[0.98] min-w-0 ${
                         actionLoading ? 'cursor-wait opacity-75' : 'cursor-pointer'
                       } ${
                         job.is_claimed
@@ -896,8 +935,8 @@ function BoardPageContent() {
                           : undefined
                       }
                     >
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="flex-1">
+                      <div className="flex justify-between items-start gap-2 min-w-0">
+                        <div className="flex-1 min-w-0">
                           <div className="text-base font-semibold leading-tight">
                             {job.name}
                           </div>
@@ -907,18 +946,16 @@ function BoardPageContent() {
                             </div>
                           )}
                         </div>
-                        <div className="text-right">
-                          <div className="text-xl font-bold">
+                        <div className="text-right shrink-0 pl-2">
+                          <div className="text-xl font-bold tabular-nums">
                             {job.base_points}
                           </div>
-                          <div className="text-[11px] text-[#666666]">
-                            pts
-                          </div>
+                          <div className="text-[11px] text-[#666666]">pts</div>
                         </div>
                       </div>
 
-                      <div className="mt-2 flex justify-between items-center">
-                        <div className="flex flex-col">
+                      <div className="mt-2 flex justify-between items-center gap-2 min-w-0">
+                        <div className="flex flex-col min-w-0">
                           <span className="text-[11px] uppercase tracking-wide">
                             {statusLabel}
                           </span>
@@ -935,7 +972,7 @@ function BoardPageContent() {
                         </div>
 
                         {claimedByYou && selectedKid && (
-                          <div className="flex flex-col gap-1">
+                          <div className="flex flex-col gap-1 shrink-0">
                             <button
                               type="button"
                               disabled={actionLoading}
@@ -968,6 +1005,9 @@ function BoardPageContent() {
             )}
           </>
         )
+
+        const jobsInnerWide = makeJobsInner(false)
+        const jobsInnerNarrow = makeJobsInner(true)
 
         const kidsInner = (
           <>
@@ -1239,7 +1279,11 @@ function BoardPageContent() {
               onStepChange={setWizardStep}
               canContinueFromStep1={!!selectedKid}
               step1={<div className={wizardShell}>{kidsInner}</div>}
-              step2={<div className={`${wizardShell} flex-1`}>{jobsInner}</div>}
+              step2={
+                <div className={`${wizardShell} flex-1 min-w-0 overflow-x-hidden`}>
+                  {jobsInnerNarrow}
+                </div>
+              }
               step3={<div className={wizardShell}>{pointsInner}</div>}
             />
           )
@@ -1248,7 +1292,7 @@ function BoardPageContent() {
         return (
           <main className="flex-1 grid gap-4 p-4 sm:p-6 lg:grid-cols-[2fr,1fr] max-w-7xl mx-auto w-full">
             <section className="bg-white rounded-md p-4 sm:p-5 flex flex-col border border-slate-200/60 shadow-sm">
-              {jobsInner}
+              {jobsInnerWide}
             </section>
             <section className="space-y-4">
               <div className="bg-white rounded-md p-4 sm:p-5 border border-slate-200/60 shadow-sm">
