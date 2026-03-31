@@ -284,6 +284,29 @@ function BoardPageContent() {
     return householdId
   }
 
+  const resetRecurringTemplateTimer = async (
+    templateId: string | null,
+    activeHouseholdId: string,
+    nowIso: string
+  ) => {
+    if (!templateId) return
+
+    const { error } = await supabase
+      .from('job_templates')
+      .update({ last_generated_at: nowIso })
+      .eq('id', templateId)
+      .eq('household_id', activeHouseholdId)
+
+    if (error) {
+      console.error('Failed to reset recurring template timer', error)
+      setInfoModal({
+        message:
+          "We marked this job done, but couldn't reset its repeat timer. It may reappear sooner than expected.",
+        variant: 'warning',
+      })
+    }
+  }
+
   const handleSelectKid = (kidId: string) => {
     if (selectedKidId === kidId) {
       setSelectedKidId(null)
@@ -437,6 +460,8 @@ function BoardPageContent() {
         return
       }
 
+      await resetRecurringTemplateTimer(job.template_id, activeHouseholdId, now)
+
       const msg =
         ENCOURAGING_MESSAGES[Math.floor(Math.random() * ENCOURAGING_MESSAGES.length)]
       setCelebration({
@@ -513,6 +538,8 @@ function BoardPageContent() {
       setActionLoading(false)
       return
     }
+
+    await resetRecurringTemplateTimer(job.template_id, activeHouseholdId, now)
 
     const msg =
       ENCOURAGING_MESSAGES[Math.floor(Math.random() * ENCOURAGING_MESSAGES.length)]
